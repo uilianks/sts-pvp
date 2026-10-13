@@ -12,8 +12,7 @@ Built for game version **v0.107.1** (Steam, public branch).
 2. **Get the mod**, either way:
    - **Steam Workshop** (easiest): open the
      [PvP Duel Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3819085998)
-     and click **Subscribe**; Steam installs and updates it. The item is *friends only*: you
-     must be Steam friends with the author to see it. Then skip to step 4.
+     and click **Subscribe**; Steam installs and updates it. The item is public. Then skip to step 4.
    - **Manual**: download `StsPvp.zip` from the latest
      [release](https://github.com/uilianks/sts-pvp/releases/latest) and unzip it into the
      `mods` folder (step 3). You can also build it (see below).
