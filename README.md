@@ -1,26 +1,78 @@
 # sts-pvp
 
-Slay the Spire PvP over LAN / Hamachi: two players, each on their own PC, fight each other.
-The game installed here is **Slay the Spire 1** (`desktop-1.0.jar`); this mod targets it.
-No ModTheSpire needed, the game install is not modified.
+Slay the Spire PvP: two players, each on their own PC, fight each other over a virtual LAN
+(Hamachi or ZeroTier) or a real one. Works with **Slay the Spire 1** (the Steam game
+"Slay the Spire", not Slay the Spire 2). No ModTheSpire needed, and the game install is not
+changed: the mod only runs when you start the game through `run.bat` / `run.sh`.
 
-## Play
+## Setup
 
-Both players need the same game version and the same `sts-pvp.jar`.
+Both players need:
 
-Linux (this machine):
+- Slay the Spire on Steam, updated, on the normal branch (Steam > Slay the Spire > Properties >
+  Betas: "None"). Both games must be the same version.
+- The same `sts-pvp.jar`. The jar is not in this repo (it contains a patched copy of one game
+  class), so either get it from the other player or build it yourself (see below).
+- The same virtual network: both join the same Hamachi network or the same ZeroTier network
+  (on ZeroTier, the network admin must tick "Auth" for both PCs in ZeroTier Central).
 
-    ./build.sh                 # builds dist/sts-pvp.jar from the installed game
-    ./run.sh host              # host: waits on TCP port 24680
-    ./run.sh join 25.x.y.z     # other player: the host's Hamachi IPv4
+### Windows
 
-Windows: copy `dist/sts-pvp.jar` and `dist/run.bat` into the game folder
-(Steam > Slay the Spire > Manage > Browse local files), then run `run.bat host` or
-`run.bat join 25.x.y.z` from a terminal in that folder. On first host, allow Java through the
-Windows firewall (Hamachi network). An optional last argument changes the port on both sides.
+1. Get `sts-pvp.jar` and `run.bat` (from the other player, or build them, see below).
+2. Open the game folder: Steam > right click Slay the Spire > Manage > Browse local files.
+   It contains `desktop-1.0.jar` and a `jre` folder.
+3. Copy `sts-pvp.jar` and `run.bat` into that folder.
+4. Open a terminal there: click the folder's address bar, type `cmd`, press Enter.
+5. Start the game in that terminal:
+   - the host: `run.bat host`
+   - the other player: `run.bat join <host IP>`
 
-Then both start a run (any character, any Neow bonus) and enter the first fight on the map:
-that combat is the duel. Game log lines starting with `[pvp]` show the connection.
+   The host IP is the host's address on the virtual network: in Hamachi, the IPv4 shown at the
+   top of the window (`25.x.y.z`); in ZeroTier, the "Managed IP" of the network
+   (`zerotier-cli listnetworks`, or ZeroTier Central).
+6. The first time the host runs it, Windows asks whether Java may use the network: allow it
+   (tick private networks; Hamachi/ZeroTier networks may count as public, tick that too).
+
+To play the normal game again, start it from Steam as usual.
+
+### Linux
+
+    ./run.sh host              # the host
+    ./run.sh join <host IP>    # the other player
+
+`run.sh` builds the jar first if `dist/sts-pvp.jar` is missing. If the game is not in the
+default Steam folder, set it: `STS_DIR=/path/to/SlayTheSpire ./run.sh host`. If the host has a
+firewall, open TCP port 24680 (`sudo ufw allow 24680/tcp` or
+`sudo firewall-cmd --add-port=24680/tcp`).
+
+### Play the duel
+
+1. Both start the game with the commands above (host first is easiest, the other player
+   keeps retrying until the host is up).
+2. Both start a new run, any character, any Neow bonus.
+3. Both enter the first fight on the map. That fight is the duel: the enemy is the other
+   player. If one arrives first, they see "Waiting for opponent..." until the other gets there.
+
+### Troubleshooting
+
+- Stuck on "Waiting for opponent...": check that `ping <host IP>` works from the other PC,
+  that both used the same port, and that the host's firewall allows Java / port 24680.
+- Port 24680 is taken or blocked: pick another one, the same on both sides:
+  `run.bat host 30000` and `run.bat join <host IP> 30000`.
+- `run.bat` says "usage": it was double clicked; run it from a terminal with `host` or `join`.
+- The terminal window shows lines starting with `[pvp]`: they say whether it is hosting,
+  joining or connected.
+
+### Building the jar
+
+Needs a JDK 11 or newer (`javac`, `jar`) and the game installed.
+
+- Linux: `./build.sh` → `dist/sts-pvp.jar` and `dist/run.bat`.
+- Windows: install a JDK (e.g. Temurin 17) and Git for Windows, then in Git Bash, in this repo:
+
+      STS_DIR="/c/Program Files (x86)/Steam/steamapps/common/SlayTheSpire" ./build.sh
+
+  (adjust the path if the Steam library is elsewhere). The result is in `dist/`.
 
 ## Rules
 
