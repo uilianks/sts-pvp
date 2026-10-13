@@ -9,8 +9,9 @@ Built for game version **v0.107.1** (Steam, public branch).
 ## Setup (both players)
 
 1. **Same game version** on both PCs: Steam > Slay the Spire 2 > Properties > Betas: "None".
-2. **Get the mod folder** `StsPvp` (it holds `StsPvp.dll` and `StsPvp.json`): ask the other
-   player for it, or build it (see below).
+2. **Get the mod**: download `StsPvp.zip` from the latest
+   [release](https://github.com/uilianks/sts-pvp/releases/latest) and unzip it. It contains
+   the `StsPvp` folder (`StsPvp.dll` + `StsPvp.json`). You can also build it (see below).
 3. **Put it in the game's `mods` folder.** Steam > right click Slay the Spire 2 > Manage >
    Browse local files. Create a folder named `mods` there if it does not exist, and copy the
    `StsPvp` folder into it:
