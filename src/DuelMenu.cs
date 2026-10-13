@@ -22,7 +22,6 @@ namespace StsPvp;
 /// </summary>
 public static class DuelMenu
 {
-    private const ulong ClientNetId = 1000;
     private const int RematchJoinAttempts = 30;
     private const float DescriptionHeight = 120;
     private const string LastIpSetting = "user://stspvp_last_ip.txt";
@@ -86,7 +85,8 @@ public static class DuelMenu
         }
         modal.Add(popup);
         var frame = popup.GetNode<NVerticalPopup>("VerticalPopup");
-        frame.SetText("Duel", "Host and wait for your friend, or type the host's IP and join " +
+        frame.SetText("Duel", "Host and wait for your friends (up to " + Duel.MaxPlayers + " players, free-for-all), " +
+                              "or type the host's IP and join " +
                               "(ZeroTier / Hamachi / LAN, UDP port " + Duel.Port + ").");
         var body = frame.GetNode<Control>("Description");
         _font = body.GetThemeFont(ThemeConstants.RichTextLabel.NormalFont);
@@ -107,7 +107,7 @@ public static class DuelMenu
 
         var box = new VBoxContainer { Name = "DuelContent" };
         box.AddThemeConstantOverride("separation", 10);
-        box.AddChild(Label("Your IP (hosting? send it to your friend):", 22));
+        box.AddChild(Label("Your IP (hosting? send it to your friends):", 22));
         AddOwnAddresses(box);
         var ip = new NMegaLineEdit { PlaceholderText = "Host IP, e.g. 25.1.2.3", Text = LoadLastIp(), CustomMinimumSize = new Vector2(0, 52) };
         StyleField(ip);
@@ -233,7 +233,7 @@ public static class DuelMenu
     {
         Duel.Begin();
         var net = new NetHostGameService();
-        var error = net.StartENetHost(Duel.Port, 2);
+        var error = net.StartENetHost(Duel.Port, Duel.MaxPlayers);
         if (error.HasValue)
         {
             Duel.Reset();
@@ -243,7 +243,7 @@ public static class DuelMenu
         }
         Log.Info("[pvp] hosting duel on UDP " + Duel.Port);
         var lobby = menu.SubmenuStack.GetSubmenuType<NCharacterSelectScreen>();
-        lobby.InitializeMultiplayerAsHost(net, 2);
+        lobby.InitializeMultiplayerAsHost(net, Duel.MaxPlayers);
         menu.SubmenuStack.Push(lobby);
         return true;
     }
@@ -257,7 +257,9 @@ public static class DuelMenu
             var flow = new JoinFlow();
             try
             {
-                var initializer = new ENetClientConnectionInitializer(ClientNetId, address, Duel.Port);
+                // Each joiner needs its own id in the lobby (the host's is 1).
+                var netId = (ulong)Random.Shared.NextInt64(1000, long.MaxValue);
+                var initializer = new ENetClientConnectionInitializer(netId, address, Duel.Port);
                 var result = await flow.Begin(initializer, menu.GetTree());
                 if (result.sessionState == RunSessionState.InLobby && result.gameMode == GameMode.Standard && result.joinResponse.HasValue)
                 {
@@ -319,7 +321,7 @@ public static class DuelMenu
 
     /// <summary>
     /// The duel end screen's Rematch: back to the main menu, where the host hosts again and the
-    /// other player rejoins the same IP (waiting for the host if it gets there first).
+    /// other players rejoin the same IP (waiting for the host if it gets there first).
     /// </summary>
     public static void Rematch()
     {

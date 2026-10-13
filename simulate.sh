@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Opens two copies of the game on this PC, already connected for a duel over 127.0.0.1:
-# the left window hosts, the right one joins. Pick a character in each window, ready up,
-# start from the host, and play both sides.
+# Opens two copies of the game on this PC (PLAYERS=3 or 4 for more), already connected for a
+# duel over 127.0.0.1: the top-left window hosts, the others join. Pick a character in each
+# window, ready up, start from the host, and play every side.
 #
 # - Runs without Steam (--force-steam=off): no Workshop mods, no Steam conflict between the copies.
 # - Each copy gets its own throwaway data folder (XDG_DATA_HOME) seeded with a copy of your
@@ -13,6 +13,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 GAME_DIR="${STS2_DIR:-$HOME/.local/share/Steam/steamapps/common/Slay the Spire 2}"
 REAL_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/SlayTheSpire2"
 SIM="${TMPDIR:-/tmp}/sts-pvp-sim"
+PLAYERS="${PLAYERS:-2}"
+case "$PLAYERS" in 2|3|4) ;; *) echo "PLAYERS must be 2, 3 or 4" >&2; exit 1 ;; esac
 MOD_DIR="$GAME_DIR/mods/StsPvp"
 
 [ -f "$HERE/dist/StsPvp/StsPvp.dll" ] || "$HERE/build.sh"
@@ -39,7 +41,7 @@ mkdir -p "$MOD_DIR"
 cp "$HERE/dist/StsPvp/"* "$MOD_DIR/"
 
 # Sandbox user data: without Steam the game uses user://default/1/.
-seed() { # seed <name> <x>
+seed() { # seed <name> <x> <y>
     local data="$SIM/$1/SlayTheSpire2"
     rm -rf "$SIM/$1"
     mkdir -p "$data/default/1"
@@ -49,11 +51,11 @@ seed() { # seed <name> <x>
         cp -r "$profile"/. "$data/default/1/"
         find "$data/default/1" -name 'current_run*' -delete
     fi
-    python3 - "$data/default/1/settings.save" "$2" <<'PY'
+    python3 - "$data/default/1/settings.save" "$2" "$3" <<'PY'
 import json, os, sys
-path, x = sys.argv[1], int(sys.argv[2])
+path, x, y = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 s = json.load(open(path)) if os.path.exists(path) else {}
-s.update(fullscreen=False, window_position={"X": x, "Y": 60}, window_size={"X": 1260, "Y": 709},
+s.update(fullscreen=False, window_position={"X": x, "Y": y}, window_size={"X": 1260, "Y": 709},
          seen_ea_disclaimer=True, skip_intro_logo=True)
 mods = s.setdefault("mod_settings", {})
 mods["mods_enabled"] = True  # consent for this sandbox only
@@ -62,16 +64,16 @@ PY
     echo "$SIM/$1"
 }
 
-run() { # run <name> <x> <args...>
-    local name=$1 x=$2; shift 2
+run() { # run <name> <x> <y> <args...>
+    local name=$1 x=$2 y=$3; shift 3
     local home
-    home="$(seed "$name" "$x")"
+    home="$(seed "$name" "$x" "$y")"
     (cd "$GAME_DIR" && XDG_DATA_HOME="$home" ./SlayTheSpire2 --force-steam=off "$@" \
         > "$SIM/$name.log" 2>&1) &
     PIDS+=($!)
 }
 
-run host 0 --pvp-host
+run host 0 60 --pvp-host
 echo "host starting (log: $SIM/host.log)"
 for _ in $(seq 1 90); do
     grep -q "\[pvp\] hosting duel" "$SIM/host.log" 2>/dev/null && break
@@ -82,7 +84,14 @@ for _ in $(seq 1 90); do
 done
 grep -q "\[pvp\] hosting duel" "$SIM/host.log" || { echo "host did not start, see $SIM/host.log" >&2; exit 1; }
 
-run client 1290 --pvp-join=127.0.0.1
-echo "client joining (log: $SIM/client.log)"
-echo "Both windows are up. Close them (or Ctrl+C here) to end the simulation."
+# The first joiner keeps the name "client" (and client.log); more are client2, client3.
+SPOTS=("1290 60" "0 760" "1290 760")
+for i in $(seq 1 $((PLAYERS - 1))); do
+    name=client; [ "$i" -gt 1 ] && name="client$i"
+    # shellcheck disable=SC2086
+    run "$name" ${SPOTS[$((i - 1))]} --pvp-join=127.0.0.1
+    echo "$name joining (log: $SIM/$name.log)"
+    sleep 3
+done
+echo "All $PLAYERS windows are up. Close them (or Ctrl+C here) to end the simulation."
 wait

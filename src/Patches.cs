@@ -46,7 +46,7 @@ internal static class LocPatch
             ["PVP_DRAFT.pages.INITIAL.options.DRAFT.description"] = "Draft 10 cards, one per pack, then 5 relics.",
             ["PVP_DRAFT.cardsPrompt"] = "Pack {Pack}/{Packs}: choose a card to add to your deck",
             ["PVP_DRAFT.pages.DONE.description"] =
-                "Ready. When both players are done, proceed and pick the next room on the map: it is the duel.",
+                "Ready. When everyone is done, proceed and pick the next room on the map: it is the duel, every player against all the others.",
         },
         ["encounters"] = new()
         {
@@ -105,7 +105,8 @@ internal static class DuelRoomPatch
             return false;
         }
         Duel.Started = true;
-        Duel.WatchForForfeit(__instance.NetService);
+        Duel.PlayerCount = state.Players.Count;
+        Duel.WatchForForfeit(__instance, state);
         __result = new CombatRoom(PvpDuel.For(state.Players), state);
         Log.Info($"[pvp] duel room created for {state.Players.Count} players");
         return false;
@@ -153,13 +154,13 @@ internal static class PowerRedirectPatch
 }
 
 /// <summary>
-/// Alternating turns: each player-side turn is given to one player only (host on odd rounds,
-/// the other player on even rounds), through the game's own "players taking the turn" list,
-/// the same one extra-turn effects use. The other player is marked done automatically, keeps
-/// their block and draws nothing. Both games derive it from the round number, so they agree.
+/// Turns in rotation: each player-side turn is given to one player only (in player order, host
+/// first, skipping players who died), through the game's own "players taking the turn" list, the
+/// same one extra-turn effects use. The others are marked done automatically, keep their block and
+/// draw nothing. Every game runs this at the same point of the lockstep, so they all agree.
 /// </summary>
 [HarmonyPatch(typeof(CombatManager), "StartTurn")]
-internal static class AlternatingTurnsPatch
+internal static class TurnRotationPatch
 {
     private static void Prefix(CombatState? ____state, List<MegaCrit.Sts2.Core.Entities.Players.Player> ____playersTakingExtraTurn)
     {
@@ -177,16 +178,23 @@ internal static class AlternatingTurnsPatch
         {
             return;
         }
-        var active = players[(____state.RoundNumber - 1) % players.Count];
-        if (active.Creature.IsDead)
+        for (var i = 0; i < players.Count; i++)
         {
-            return;
+            var index = (Duel.NextTurn + i) % players.Count;
+            if (!players[index].Creature.IsDead)
+            {
+                Duel.NextTurn = index + 1;
+                ____playersTakingExtraTurn.Add(players[index]);
+                return;
+            }
         }
-        ____playersTakingExtraTurn.Add(active);
     }
 }
 
-/// <summary>When a player dies the duel is decided: both games show the end screen.</summary>
+/// <summary>
+/// When a player dies they are out: their stand-in leaves the enemy side and they watch the rest.
+/// When one player is left standing the duel is decided and every game shows the end screen.
+/// </summary>
 [HarmonyPatch(typeof(CreatureCmd), nameof(CreatureCmd.Kill), typeof(IReadOnlyCollection<Creature>), typeof(bool))]
 internal static class DuelEndPatch
 {
@@ -217,13 +225,30 @@ internal static class DuelEndPatch
             Duel.Decided = true;
             return;
         }
+        var alive = players.Count(p => !p.Creature.IsDead);
         // Everyone dead is a normal co-op loss; the game already shows its game over screen.
-        if (players.All(p => p.Creature.IsDead))
+        if (alive == 0)
         {
             Duel.Decided = true;
             return;
         }
-        Duel.Finish(won: !me.Creature.IsDead, "a player died");
+        // Players killed by the same hit share the place.
+        if (me.Creature.IsDead && Duel.LocalPlace == 0)
+        {
+            Duel.LocalPlace = alive + 1;
+        }
+        if (alive == 1)
+        {
+            Duel.Finish(me.Creature.IsDead ? Duel.LocalPlace : 1, "one player left standing");
+            return;
+        }
+        var outProxies = me.Creature.CombatState?.Enemies
+            .Where(e => !e.IsDead && Duel.PlayerFor(e)?.Creature.IsDead == true)
+            .ToList();
+        if (outProxies is { Count: > 0 })
+        {
+            await CreatureCmd.Kill(outProxies);
+        }
     }
 }
 
@@ -241,6 +266,16 @@ internal static class ProxyDisplayPatch
             creature = player.Creature;
         }
     }
+}
+
+/// <summary>
+/// Several monsters of one type get a random size and tint, and their visuals' scale is reset,
+/// which undoes the mirroring of the proxies (all one type). Proxies look like their players.
+/// </summary>
+[HarmonyPatch(typeof(NCombatRoom), "RandomizeEnemyScalesAndHues")]
+internal static class ProxyScalePatch
+{
+    private static bool Prefix() => !Duel.Active;
 }
 
 /// <summary>The draft event has no art of its own: it shows the Battleworn Dummy portrait.</summary>
@@ -332,7 +367,15 @@ internal static class DuelBannerPatch
     {
         if (Duel.Decided)
         {
-            ____banner.label.SetTextAutoSize(Duel.LocalWon ? "Victory!" : "Defeat");
+            ____banner.label.SetTextAutoSize(Duel.LocalPlace switch
+            {
+                1 => "Victory!",
+                0 => "Duel Over",
+                _ when Duel.PlayerCount <= 2 => "Defeat",
+                2 => "2nd Place",
+                3 => "3rd Place",
+                var place => place + "th Place",
+            });
         }
     }
 }

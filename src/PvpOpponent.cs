@@ -29,6 +29,9 @@ public sealed class PvpOpponent : MonsterModel
 
     public override int MaxInitialHp => 9999;
 
+    // Its visuals are mirrored to face the local player; a scale tween would undo that.
+    public override bool CanChangeScale => false;
+
     protected override MonsterMoveStateMachine GenerateMoveStateMachine()
     {
         var nothing = new MoveState("NOTHING", _ => Task.CompletedTask, new HiddenIntent());

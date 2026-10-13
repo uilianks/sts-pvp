@@ -1,14 +1,14 @@
 # sts-pvp: Slay the Spire 2 Duel
 
-A Slay the Spire 2 mod that adds a **Duel** button to the main menu: two players, each on their
-own PC, fight each other. It reuses the game's own co-op: same lobby, same character select,
+A Slay the Spire 2 mod that adds a **Duel** button to the main menu: 2 to 4 players, each on their
+own PC, fight each other, free-for-all: the last one standing wins. It reuses the game's own co-op: same lobby, same character select,
 same turn sync, connected by IP, so it works over LAN, Hamachi or ZeroTier.
 
 Built for game version **v0.107.1** (Steam, public branch).
 
-## Setup (both players)
+## Setup (every player)
 
-1. **Same game version** on both PCs: Steam > Slay the Spire 2 > Properties > Betas: "None".
+1. **Same game version** on every PC: Steam > Slay the Spire 2 > Properties > Betas: "None".
 2. **Get the mod**, either way:
    - **Steam Workshop** (easiest): open the
      [PvP Duel Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3819085998)
@@ -33,38 +33,41 @@ Built for game version **v0.107.1** (Steam, public branch).
    On Linux, `./install.sh` does this.
 4. **Start the game from Steam.** The first time, the game asks whether to load mods: accept.
    The main menu then shows **Duel** under Multiplayer.
-5. **Same mods on both PCs.** Co-op checks that both games match, so any other mod has to be
-   on both sides too. If one of you has extra mods (e.g. from the Workshop), turn them off in
+5. **Same mods on every PC.** Co-op checks that the games match, so any other mod has to be
+   on every side too. If one of you has extra mods (e.g. from the Workshop), turn them off in
    *Mod Configuration* in the main menu.
-6. **Same virtual network**: both in the same Hamachi network, or the same ZeroTier network
-   (the ZeroTier admin must tick "Auth" for both PCs in ZeroTier Central).
+6. **Same virtual network**: all in the same Hamachi network, or the same ZeroTier network
+   (the ZeroTier admin must tick "Auth" for every PC in ZeroTier Central).
 
 ## Play
 
 1. Host: **Duel**. The panel lists your IPs (ZeroTier, Hamachi, LAN): click **Copy** next to
-   the one your friend can reach and send it to them. Then **Host**: the game's co-op
+   the one your friends can reach and send it to them. Then **Host**: the game's co-op
    character select opens and waits.
-2. Other player: **Duel**, type the host's IP, **Join**.
+2. Other players (up to 3): **Duel**, type the host's IP, **Join**.
    - Hamachi: the IPv4 at the top of the Hamachi window (`25.x.y.z`).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
    - Same LAN: the host's local IP (`192.168.x.y`).
-3. Both pick a character and ready up; the host starts the run.
+3. Everyone picks a character and readies up; the host starts the run (with 2 or more players).
 4. **Draft**: the run opens on the *Duel Draft* event. Click **Draft** and open **10 packs**
    of 5 random cards from your character's pool (Common, Uncommon, Rare), keeping one card
    from each, like a booster draft; then **5 relics**, one
-   out of three each time. When both are done, click **Proceed** and pick the next room on
+   out of three each time. When everyone is done, click **Proceed** and pick the next room on
    the map: it is the duel.
-5. The duel: you on the left, the other player on the right,
+5. The duel: you on the left, every other player on the right,
    facing you, with their real HP, block and powers.
-6. Turns alternate: the host plays first, ends turn, then the other player plays, and so on.
-   While it is not your turn you have no cards and wait ("Opponent's Turn"). Block lasts
-   through the opponent's turn and resets at the start of your own. Attacks, debuffs, area
-   attacks and potions aimed at the opponent hit the other player for real (their block,
-   Vulnerable, Thorns, etc. all apply).
-7. When a player dies, both see the end screen: **Victory!** or **Defeat**. If the opponent
-   quits mid-duel, you win. Click **Continue**, then **Rematch** (above Main Menu): the host
-   hosts again and the other player rejoins the same IP, back to character select. Whoever
-   clicks first waits for the other.
+6. Turns rotate in lobby order: the host plays first, ends turn, then the next player, and so
+   on. While it is not your turn you have no cards and wait ("Opponent's Turn"). Block lasts
+   through the others' turns and resets at the start of your own. Attacks, debuffs and potions
+   aimed at an opponent hit that player for real (their block, Vulnerable, Thorns, etc. all
+   apply); area attacks hit every opponent.
+7. A player who dies is out: they vanish from the enemy side, their turns are skipped, and
+   they watch the rest. When one player is left standing, everyone sees the end screen:
+   **Victory!** for the winner, **Defeat** (2 players) or the place (*2nd Place*, *3rd Place*…).
+   A player still fighting who quits forfeits: if that leaves one player, they win; with more
+   left the duel ends with no result (*Duel Over*). Click **Continue**, then **Rematch** (above
+   Main Menu): the host hosts again and the others rejoin the same IP, back to character
+   select. Whoever clicks first waits for the host.
 
 Duel runs are not saved and do not count towards stats or unlocks.
 
@@ -86,15 +89,16 @@ The host listens on **UDP 33771** (the game's own co-op port).
 - Game log: Linux `~/.local/share/SlayTheSpire2/logs/`, Windows
   `%APPDATA%\SlayTheSpire2\logs\`; the mod's lines start with `[pvp]`.
 
-## Try it alone: two games on one PC
+## Try it alone: several games on one PC
 
-    ./simulate.sh
+    ./simulate.sh             # 2 players
+    PLAYERS=4 ./simulate.sh   # 3 or 4 players, windows tiled 2x2
 
-Opens two copies of the game side by side, already connected over 127.0.0.1 (the first hosts,
-the second joins). Pick a character and click ✓ in both windows, start from the host, and play
-both sides of the duel. It runs without Steam, gives each copy a throwaway data folder seeded
+Opens copies of the game side by side, already connected over 127.0.0.1 (the first hosts,
+the others join). Pick a character and click ✓ in every window, start from the host, and play
+every side of the duel. It runs without Steam, gives each copy a throwaway data folder seeded
 from your settings and progress (your saves are not touched), and puts the built mod in `mods/`
-only for the session. Logs: `/tmp/sts-pvp-sim/host.log` and `client.log`.
+only for the session. Logs: `/tmp/sts-pvp-sim/host.log`, `client.log` (then `client2.log`, `client3.log`).
 
 The same auto start works on any install: launch the game with `--pvp-host` or
 `--pvp-join=<ip>` to open the Duel panel and host or join right away.
@@ -126,13 +130,13 @@ calls the class marked `[ModInitializer]`; Harmony ships with the game.
   while the host is not up yet). The Rematch button is a copy of the end screen's
   `NReturnToMainMenuButton`, shown with it; the end screen also hides the creatures the duel
   hides (`MoveCreaturesToDifferentLayerAndDisableUi` would show them again).
-  Host: `NetHostGameService.StartENetHost(33771, 2)` + the co-op `NCharacterSelectScreen`.
-  Join: `JoinFlow` with `ENetClientConnectionInitializer(ip, 33771)`. The game itself only uses
+  Host: `NetHostGameService.StartENetHost(33771, 4)` + the co-op `NCharacterSelectScreen`.
+  Join: `JoinFlow` with `ENetClientConnectionInitializer(netId, ip, 33771)`, a random net id per joiner (the host is 1). The game itself only uses
   this IP transport for local debugging (`fastmp`, hardcoded to 127.0.0.1).
 - `PvpDraft`: the draft room, a per-player event like the game's own card-picking events.
   `CardSelectCmd.FromSimpleGrid` (10 packs × 1 of 5, the picked card leaves the pool) and `RelicSelectCmd.FromChooseARelicScreen`
   (5 × 1 of 3; packs and offers shuffled with the event's per-player RNG) go through the game's
-  `PlayerChoiceSynchronizer`, so both games apply the same picks. It shows the Battleworn
+  `PlayerChoiceSynchronizer`, so every game applies the same picks. It shows the Battleworn
   Dummy portrait (`EventModel.InitialPortraitPath` patch), since the mod ships no art.
 - `PvpDuel` / `PvpOpponent`: the duel encounter, one proxy monster per player, drawn with the
   player's character visuals (`creature_visuals/<character>`, as the game's own test monsters do).
@@ -140,18 +144,20 @@ calls the class marked `[ModInitializer]`; Harmony ships with the game.
   - `RunManager.CreateRoom`: in duel mode the run's first room is the draft, the next one the duel.
   - `CreatureCmd.Damage` / `PowerCmd.Apply`: a proxy target is replaced by the player it stands
     for (and dropped when that is the attacker), before damage modifiers run. Co-op is
-    lockstep, so both games resolve the same hit the same way.
-  - `CombatManager.StartTurn`: alternating turns. Each player-side turn is given to one player
-    (host on odd rounds) through the game's own "players taking the turn" list, the one
-    extra-turn effects use; the other player is marked done and draws nothing.
-  - `CreatureCmd.Kill`: one player dead decides the duel (not when the run is abandoned); a
-    disconnect of the opponent mid-duel is a forfeit win; both games show the game over screen,
-    `NGameOverScreen.InitializeBannerAndQuote` sets the Victory/Defeat banner.
+    lockstep, so every game resolves the same hit the same way.
+  - `CombatManager.StartTurn`: turn rotation. Each player-side turn is given to the next living
+    player in lobby order through the game's own "players taking the turn" list, the one
+    extra-turn effects use; the others are marked done and draw nothing.
+  - `CreatureCmd.Kill`: a dead player's proxy is killed too; one player left standing decides
+    the duel (not when the run is abandoned) and every game shows the game over screen,
+    `NGameOverScreen.InitializeBannerAndQuote` sets the Victory/Defeat/place banner. A player
+    still fighting who leaves (`RunLobby.RemotePlayerDisconnected`, or the client's connection
+    to the host) forfeits.
   - `NCreatureStateDisplay.SetCreature`: the proxy shows its player's HP, block and powers.
   - `RunManager.SetUpNewMultiplayer`: duel runs are not saved.
   - `LocManager.SetLanguageInternal`: the mod's strings (no .pck) are merged into the tables.
-- Scene-tree hooks (not `_Ready` patches): on your screen your own proxy and the opponent's
-  co-op body are hidden and their proxy is mirrored to face you; the turn banner says
+- Scene-tree hooks (not `_Ready` patches): on your screen your own proxy and the opponents'
+  co-op bodies are hidden and their proxies are mirrored to face you; the turn banner says
   "Your Turn" / "Opponent's Turn" instead of the extra-turn title.
 
 ## Findings
@@ -171,5 +177,5 @@ Verified on Linux, game v0.107.1:
 - builds; `test/` applies every patch to the real `sts2.dll` (run by `build.sh`);
 - in game: the mod loads, all patches apply, the **Duel** button shows in the main menu.
 
-Not verified: an actual duel between two PCs (host/join, the proxy display, damage
+Not verified: 3 and 4 player duels; an actual duel between two PCs (host/join, the proxy display, damage
 redirection, the end screen), Windows, and play across Hamachi/ZeroTier.
