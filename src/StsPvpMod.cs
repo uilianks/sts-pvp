@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Modding;
@@ -80,7 +81,10 @@ public static class StsPvpMod
                 Callable.From(() => OnMainMenuReady(menu)).CallDeferred();
                 break;
             case NCreature creature:
-                Callable.From(() => HideOwnProxy(creature)).CallDeferred();
+                Callable.From(() => ArrangeDuelCreature(creature)).CallDeferred();
+                break;
+            case NPlayerTurnBanner banner:
+                Callable.From(() => RetitleTurnBanner(banner)).CallDeferred();
                 break;
         }
     }
@@ -96,15 +100,53 @@ public static class StsPvpMod
         DuelMenu.AddButton(menu, menu.GetNode<NMainMenuTextButton>("MainMenuTextButtons/MultiplayerButton"));
     }
 
-    /// <summary>Your own proxy is hidden on your screen: you only see (and target) the opponent's.</summary>
-    private static void HideOwnProxy(NCreature creature)
+    /// <summary>
+    /// Duel turns go through the game's extra-turn list, so its banner says "Extra Turn":
+    /// say whose turn it is instead.
+    /// </summary>
+    private static void RetitleTurnBanner(NPlayerTurnBanner banner)
     {
-        if (!GodotObject.IsInstanceValid(creature))
+        if (!Duel.Active || !Duel.Started || !GodotObject.IsInstanceValid(banner))
         {
             return;
         }
-        var player = Duel.PlayerFor(creature.Entity);
-        if (player != null && LocalContext.IsMe(player))
+        var active = CombatManager.Instance.PlayersTakingExtraTurn;
+        if (active.Count == 0)
+        {
+            return;
+        }
+        var mine = active.Any(LocalContext.IsMe);
+        Traverse.Create(banner).Field("_label").Method("SetTextAutoSize", mine ? "Your Turn" : "Opponent's Turn").GetValue();
+    }
+
+    /// <summary>
+    /// On your screen the opponent appears once, as the enemy facing you: your own proxy and the
+    /// opponent's co-op body (and pet) on your side are hidden; the opponent's proxy is mirrored.
+    /// Display only; the creatures stay in the shared simulation.
+    /// </summary>
+    private static void ArrangeDuelCreature(NCreature creature)
+    {
+        if (!Duel.Active || !GodotObject.IsInstanceValid(creature) || creature.Entity == null)
+        {
+            return;
+        }
+        var entity = creature.Entity;
+        var proxyFor = Duel.PlayerFor(entity);
+        if (proxyFor != null)
+        {
+            if (LocalContext.IsMe(proxyFor))
+            {
+                creature.Visible = false;
+            }
+            else if (creature.Visuals != null)
+            {
+                var scale = creature.Visuals.Scale;
+                creature.Visuals.Scale = new Vector2(-Math.Abs(scale.X), scale.Y);
+            }
+            return;
+        }
+        var owner = entity.Player ?? entity.PetOwner;
+        if (owner != null && !LocalContext.IsMe(owner))
         {
             creature.Visible = false;
         }

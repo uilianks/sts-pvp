@@ -66,7 +66,7 @@ run() { # run <name> <x> <args...>
     local name=$1 x=$2; shift 2
     local home
     home="$(seed "$name" "$x")"
-    (cd "$GAME_DIR" && XDG_DATA_HOME="$home" ./SlayTheSpire2 --force-steam=off --fastmp "$@" \
+    (cd "$GAME_DIR" && XDG_DATA_HOME="$home" ./SlayTheSpire2 --force-steam=off "$@" \
         > "$SIM/$name.log" 2>&1) &
     PIDS+=($!)
 }

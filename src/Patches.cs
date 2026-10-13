@@ -84,6 +84,7 @@ internal static class DuelRoomPatch
         }
         var state = (RunState)AccessTools.Property(typeof(RunManager), "State").GetValue(__instance)!;
         Duel.Started = true;
+        Duel.WatchForForfeit(__instance.NetService);
         __result = new CombatRoom(PvpDuel.For(state.Players), state);
         Log.Info($"[pvp] duel room created for {state.Players.Count} players");
         return false;
@@ -130,6 +131,40 @@ internal static class PowerRedirectPatch
     }
 }
 
+/// <summary>
+/// Alternating turns: each player-side turn is given to one player only (host on odd rounds,
+/// the other player on even rounds), through the game's own "players taking the turn" list,
+/// the same one extra-turn effects use. The other player is marked done automatically, keeps
+/// their block and draws nothing. Both games derive it from the round number, so they agree.
+/// </summary>
+[HarmonyPatch(typeof(CombatManager), "StartTurn")]
+internal static class AlternatingTurnsPatch
+{
+    private static void Prefix(CombatState? ____state, List<MegaCrit.Sts2.Core.Entities.Players.Player> ____playersTakingExtraTurn)
+    {
+        if (!Duel.Active || !Duel.Started || ____state == null || ____state.CurrentSide != CombatSide.Player)
+        {
+            return;
+        }
+        // A real extra turn (relic, card) already picked who plays.
+        if (____playersTakingExtraTurn.Count > 0)
+        {
+            return;
+        }
+        var players = ____state.Players;
+        if (players.Count < 2)
+        {
+            return;
+        }
+        var active = players[(____state.RoundNumber - 1) % players.Count];
+        if (active.Creature.IsDead)
+        {
+            return;
+        }
+        ____playersTakingExtraTurn.Add(active);
+    }
+}
+
 /// <summary>When a player dies the duel is decided: both games show the end screen.</summary>
 [HarmonyPatch(typeof(CreatureCmd), nameof(CreatureCmd.Kill), typeof(IReadOnlyCollection<Creature>), typeof(bool))]
 internal static class DuelEndPatch
@@ -155,20 +190,19 @@ internal static class DuelEndPatch
         {
             return;
         }
+        // Abandoning kills every player first; that is not a duel result.
+        if (RunManager.Instance.IsAbandoned)
+        {
+            Duel.Decided = true;
+            return;
+        }
         // Everyone dead is a normal co-op loss; the game already shows its game over screen.
         if (players.All(p => p.Creature.IsDead))
         {
             Duel.Decided = true;
             return;
         }
-        Duel.Decided = true;
-        Duel.LocalWon = !me.Creature.IsDead;
-        Log.Info($"[pvp] duel decided, local player {(Duel.LocalWon ? "won" : "lost")}");
-        CombatManager.Instance.LoseCombat();
-        NRun.Instance?.RunMusicController.StopMusic();
-        // isVictory: true keeps the opponent proxy out of the enemy discovery list.
-        var run = RunManager.Instance.OnEnded(isVictory: true);
-        NRun.Instance?.ShowGameOverScreen(run);
+        Duel.Finish(won: !me.Creature.IsDead, "a player died");
     }
 }
 

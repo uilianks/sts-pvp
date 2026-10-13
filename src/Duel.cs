@@ -1,4 +1,10 @@
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Entities.Multiplayer;
+using MegaCrit.Sts2.Core.Multiplayer;
+using MegaCrit.Sts2.Core.Multiplayer.Game;
+using MegaCrit.Sts2.Core.Nodes;
+using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
 
@@ -44,6 +50,57 @@ public static class Duel
         Active = false;
         Started = false;
         Decided = false;
+    }
+
+    /// <summary>
+    /// Ends the duel on this game: Victory/Defeat on the game over screen (the banner is set by
+    /// the game over patch from <see cref="LocalWon"/>).
+    /// </summary>
+    public static void Finish(bool won, string why)
+    {
+        if (Decided)
+        {
+            return;
+        }
+        Decided = true;
+        LocalWon = won;
+        Log.Info($"[pvp] duel decided ({why}), local player {(won ? "won" : "lost")}");
+        if (CombatManager.Instance.IsInProgress)
+        {
+            CombatManager.Instance.LoseCombat();
+        }
+        NRun.Instance?.RunMusicController.StopMusic();
+        // isVictory: true keeps the opponent proxy out of the enemy discovery list.
+        var run = RunManager.Instance.OnEnded(isVictory: true);
+        NRun.Instance?.ShowGameOverScreen(run);
+    }
+
+    /// <summary>The opponent leaving mid-duel is a forfeit: the player who stayed wins.</summary>
+    public static void WatchForForfeit(INetGameService net)
+    {
+        if (net is NetHostGameService host)
+        {
+            host.ClientDisconnected += (_, _) => Forfeit();
+        }
+        else
+        {
+            net.Disconnected += info =>
+            {
+                // Our own quit is not a forfeit by the host.
+                if (!info.SelfInitiated)
+                {
+                    Forfeit();
+                }
+            };
+        }
+    }
+
+    private static void Forfeit()
+    {
+        if (Active && Started && !Decided && !RunManager.Instance.IsAbandoned)
+        {
+            Finish(won: true, "opponent left");
+        }
     }
 
     /// <summary>The player a proxy creature stands for, or null if it is not a proxy.</summary>

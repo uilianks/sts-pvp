@@ -50,12 +50,15 @@ Built for game version **v0.107.1** (Steam, public branch).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
    - Same LAN: the host's local IP (`192.168.x.y`).
 3. Both pick a character and ready up; the host starts the run.
-4. The run opens straight into the duel. The enemy is the other player, drawn as their
-   character, with their real HP, block and powers on it.
-5. Turns are simultaneous like in co-op: play your cards, end turn; the next turn starts when
-   both ended. Attacks, debuffs, area attacks and potions aimed at the opponent hit the other
-   player for real (their block, Vulnerable, Thorns, etc. all apply).
-6. When a player dies, both see the end screen: **Victory!** or **Defeat**. Main Menu to play again.
+4. The run opens straight into the duel: you on the left, the other player on the right,
+   facing you, with their real HP, block and powers.
+5. Turns alternate: the host plays first, ends turn, then the other player plays, and so on.
+   While it is not your turn you have no cards and wait ("Opponent's Turn"). Block lasts
+   through the opponent's turn and resets at the start of your own. Attacks, debuffs, area
+   attacks and potions aimed at the opponent hit the other player for real (their block,
+   Vulnerable, Thorns, etc. all apply).
+6. When a player dies, both see the end screen: **Victory!** or **Defeat**. If the opponent
+   quits mid-duel, you win. Main Menu to play again.
 
 Duel runs are not saved and do not count towards stats or unlocks.
 
@@ -122,12 +125,18 @@ calls the class marked `[ModInitializer]`; Harmony ships with the game.
   - `CreatureCmd.Damage` / `PowerCmd.Apply`: a proxy target is replaced by the player it stands
     for (and dropped when that is the attacker), before damage modifiers run. Co-op is
     lockstep, so both games resolve the same hit the same way.
-  - `CreatureCmd.Kill`: one player dead decides the duel; both games show the game over screen,
+  - `CombatManager.StartTurn`: alternating turns. Each player-side turn is given to one player
+    (host on odd rounds) through the game's own "players taking the turn" list, the one
+    extra-turn effects use; the other player is marked done and draws nothing.
+  - `CreatureCmd.Kill`: one player dead decides the duel (not when the run is abandoned); a
+    disconnect of the opponent mid-duel is a forfeit win; both games show the game over screen,
     `NGameOverScreen.InitializeBannerAndQuote` sets the Victory/Defeat banner.
   - `NCreatureStateDisplay.SetCreature`: the proxy shows its player's HP, block and powers.
   - `RunManager.SetUpNewMultiplayer`: duel runs are not saved.
   - `LocManager.SetLanguageInternal`: the mod's strings (no .pck) are merged into the tables.
-- Your own proxy is hidden on your screen (scene-tree hook, not a `_Ready` patch).
+- Scene-tree hooks (not `_Ready` patches): on your screen your own proxy and the opponent's
+  co-op body are hidden and their proxy is mirrored to face you; the turn banner says
+  "Your Turn" / "Opponent's Turn" instead of the extra-turn title.
 
 ## Findings
 
