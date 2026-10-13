@@ -1,8 +1,8 @@
 {
   "title": "PvP Duel",
-  "description": "Adds a Duel button to the main menu: two players fight each other, built on the game's own co-op lobby.\n\nHost: Duel > Host. Other player: Duel > type the host's IP (LAN, Hamachi or ZeroTier) > Join. Pick characters, start, and the run opens straight into the duel. The enemy is the other player, with their real HP, block and powers; turns are simultaneous like co-op. When a player dies, both see Victory/Defeat.\n\nBoth players need the same game version and the same mod list. The host needs UDP port 33771 open. Duel runs are not saved.\n\nSource and instructions: https://github.com/uilianks/sts-pvp",
+  "description": "Adds a Duel button to the main menu: two players fight each other, built on the game's own co-op lobby.\n\nHost: Duel > Host. Other player: Duel > type the host's IP (LAN, Hamachi or ZeroTier) > Join. Pick characters, start, and the run opens straight into the duel. The enemy is the other player, with their real HP, block and powers; turns alternate (host first). When a player dies, both see Victory/Defeat.\n\nBoth players need the same game version and the same mod list. The host needs UDP port 33771 open. Duel runs are not saved.\n\nSource and instructions: https://github.com/uilianks/sts-pvp",
   "visibility": "friends_only",
-  "changeNote": "1.1.0: the Duel panel shows your ZeroTier / Hamachi / LAN IP with a Copy button, so the host can paste it to their friend.",
+  "changeNote": "1.2.0: turns alternate (host first, then the other player); each player on their own side, the opponent facing you; turn banner says Your Turn / Opponent's Turn; if the opponent quits mid-duel you win; abandoning a run no longer shows a Defeat.",
   "tags": [],
   "dependencies": [],
   "contentDescriptors": []
