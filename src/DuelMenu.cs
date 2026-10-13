@@ -21,6 +21,9 @@ public static class DuelMenu
     private const ulong ClientNetId = 1000;
     private const string LastIpSetting = "user://stspvp_last_ip.txt";
 
+    // --pvp-host / --pvp-join=<ip> launch arguments (used by simulate.sh): done once per launch.
+    private static bool _autoStartDone;
+
     /// <summary>Adds the Duel button right under Multiplayer. Called once the main menu is ready.</summary>
     public static void AddButton(NMainMenu menu, NMainMenuTextButton multiplayerButton)
     {
@@ -31,9 +34,22 @@ public static class DuelMenu
         multiplayerButton.GetParent().MoveChild(duel, multiplayerButton.GetIndex() + 1);
         duel.SetLocalization("PVP_DUEL");
         duel.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ => OpenPanel(menu)));
+
+        if (!_autoStartDone)
+        {
+            _autoStartDone = true;
+            if (CommandLineHelper.HasArg("pvp-host"))
+            {
+                OpenPanel(menu, autoHost: true);
+            }
+            else if (CommandLineHelper.GetValue("pvp-join") is { Length: > 0 } autoJoin)
+            {
+                OpenPanel(menu, autoJoinIp: autoJoin);
+            }
+        }
     }
 
-    private static void OpenPanel(NMainMenu menu)
+    private static void OpenPanel(NMainMenu menu, bool autoHost = false, string? autoJoinIp = null)
     {
         var overlay = new ColorRect { Color = new Color(0, 0, 0, 0.6f), Name = "DuelPanel" };
         overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -117,6 +133,16 @@ public static class DuelMenu
 
         menu.AddChild(overlay);
         ip.GrabFocus();
+
+        if (autoHost)
+        {
+            host.EmitSignal(BaseButton.SignalName.Pressed);
+        }
+        else if (autoJoinIp != null)
+        {
+            ip.Text = autoJoinIp;
+            join.EmitSignal(BaseButton.SignalName.Pressed);
+        }
     }
 
     /// <summary>One row per address of this PC (ZeroTier, Hamachi, LAN) with a Copy button.</summary>

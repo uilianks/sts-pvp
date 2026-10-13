@@ -77,6 +77,19 @@ The host listens on **UDP 33771** (the game's own co-op port).
 - Game log: Linux `~/.local/share/SlayTheSpire2/logs/`, Windows
   `%APPDATA%\SlayTheSpire2\logs\`; the mod's lines start with `[pvp]`.
 
+## Try it alone: two games on one PC
+
+    ./simulate.sh
+
+Opens two copies of the game side by side, already connected over 127.0.0.1 (the first hosts,
+the second joins). Pick a character and click ✓ in both windows, start from the host, and play
+both sides of the duel. It runs without Steam, gives each copy a throwaway data folder seeded
+from your settings and progress (your saves are not touched), and puts the built mod in `mods/`
+only for the session. Logs: `/tmp/sts-pvp-sim/host.log` and `client.log`.
+
+The same auto start works on any install: launch the game with `--pvp-host` or
+`--pvp-join=<ip>` to open the Duel panel and host or join right away.
+
 ## Build
 
 Needs the .NET 9 SDK and the game installed.
