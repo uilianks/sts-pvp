@@ -9,10 +9,18 @@ Built for game version **v0.107.1** (Steam, public branch).
 ## Setup (both players)
 
 1. **Same game version** on both PCs: Steam > Slay the Spire 2 > Properties > Betas: "None".
-2. **Get the mod**: download `StsPvp.zip` from the latest
-   [release](https://github.com/uilianks/sts-pvp/releases/latest) and unzip it. It contains
-   the `StsPvp` folder (`StsPvp.dll` + `StsPvp.json`). You can also build it (see below).
-3. **Put it in the game's `mods` folder.** Steam > right click Slay the Spire 2 > Manage >
+2. **Get the mod**, either way:
+   - **Steam Workshop** (easiest): open the
+     [PvP Duel Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3819085998)
+     and click **Subscribe**; Steam installs and updates it. The item is *friends only*: you
+     must be Steam friends with the author to see it. Then skip to step 4.
+   - **Manual**: download `StsPvp.zip` from the latest
+     [release](https://github.com/uilianks/sts-pvp/releases/latest) and unzip it into the
+     `mods` folder (step 3). You can also build it (see below).
+
+   Use one or the other: if the mod is both subscribed and in `mods`, the game disables the
+   Workshop copy.
+3. **Manual install only: put it in the game's `mods` folder.** Steam > right click Slay the Spire 2 > Manage >
    Browse local files. Create a folder named `mods` there if it does not exist, and copy the
    `StsPvp` folder into it:
 
@@ -75,7 +83,12 @@ Needs the .NET 9 SDK and the game installed.
     ./install.sh    # copies dist/StsPvp into <game>/mods/
     ./uninstall.sh
 
-`STS2_DIR=/path/to/Slay the Spire 2` overrides the game folder. On Windows, build with
+`STS2_DIR=/path/to/Slay the Spire 2` overrides the game folder.
+
+Workshop update: set `changeNote` in `workshop/workshop.json`, then `./workshop.sh` (builds, copies
+the mod into `workshop/content/` and runs Mega Crit's
+[uploader](https://github.com/megacrit/sts2-mod-uploader); Steam must be running). The item id
+is kept in `workshop/mod_id.txt`, so it updates the same Workshop item. On Windows, build with
 `dotnet build StsPvp.csproj -c Release -o build -p:GameDir="C:\...\Slay the Spire 2"`.
 
 ## How it works

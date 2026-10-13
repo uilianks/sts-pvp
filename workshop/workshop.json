@@ -1,0 +1,9 @@
+{
+  "title": "PvP Duel",
+  "description": "Adds a Duel button to the main menu: two players fight each other, built on the game's own co-op lobby.\n\nHost: Duel > Host. Other player: Duel > type the host's IP (LAN, Hamachi or ZeroTier) > Join. Pick characters, start, and the run opens straight into the duel. The enemy is the other player, with their real HP, block and powers; turns are simultaneous like co-op. When a player dies, both see Victory/Defeat.\n\nBoth players need the same game version and the same mod list. The host needs UDP port 33771 open. Duel runs are not saved.\n\nSource and instructions: https://github.com/uilianks/sts-pvp",
+  "visibility": "friends_only",
+  "changeNote": "First release (game v0.107.1).",
+  "tags": [],
+  "dependencies": [],
+  "contentDescriptors": []
+}

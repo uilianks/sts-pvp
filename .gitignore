@@ -4,3 +4,4 @@ build/
 dist/
 test/bin/
 test/obj/
+workshop/content/
