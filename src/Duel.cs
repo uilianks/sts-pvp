@@ -24,6 +24,9 @@ public static class Duel
     /// <summary>Set by the Duel menu on both host and client; cleared back on the main menu.</summary>
     public static bool Active { get; private set; }
 
+    /// <summary>The draft room was created (the run's first room).</summary>
+    public static bool Drafted { get; set; }
+
     /// <summary>The duel room was entered (only the first room of the run becomes the duel).</summary>
     public static bool Started { get; set; }
 
@@ -36,6 +39,7 @@ public static class Duel
     public static void Begin()
     {
         Active = true;
+        Drafted = false;
         Started = false;
         Decided = false;
         Log.Info("[pvp] duel mode on");
@@ -48,6 +52,7 @@ public static class Duel
             Log.Info("[pvp] duel mode off");
         }
         Active = false;
+        Drafted = false;
         Started = false;
         Decided = false;
     }

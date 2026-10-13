@@ -50,14 +50,18 @@ Built for game version **v0.107.1** (Steam, public branch).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
    - Same LAN: the host's local IP (`192.168.x.y`).
 3. Both pick a character and ready up; the host starts the run.
-4. The run opens straight into the duel: you on the left, the other player on the right,
+4. **Draft**: the run opens on the *Duel Draft* event. Click **Draft**, pick **10 cards** from
+   your character's pool (Common, Uncommon, Rare) to add to your deck, then **5 relics**, one
+   out of three each time. When both are done, click **Proceed** and pick the next room on
+   the map: it is the duel.
+5. The duel: you on the left, the other player on the right,
    facing you, with their real HP, block and powers.
-5. Turns alternate: the host plays first, ends turn, then the other player plays, and so on.
+6. Turns alternate: the host plays first, ends turn, then the other player plays, and so on.
    While it is not your turn you have no cards and wait ("Opponent's Turn"). Block lasts
    through the opponent's turn and resets at the start of your own. Attacks, debuffs, area
    attacks and potions aimed at the opponent hit the other player for real (their block,
    Vulnerable, Thorns, etc. all apply).
-6. When a player dies, both see the end screen: **Victory!** or **Defeat**. If the opponent
+7. When a player dies, both see the end screen: **Victory!** or **Defeat**. If the opponent
    quits mid-duel, you win. Main Menu to play again.
 
 Duel runs are not saved and do not count towards stats or unlocks.
@@ -118,10 +122,15 @@ calls the class marked `[ModInitializer]`; Harmony ships with the game.
   Host: `NetHostGameService.StartENetHost(33771, 2)` + the co-op `NCharacterSelectScreen`.
   Join: `JoinFlow` with `ENetClientConnectionInitializer(ip, 33771)`. The game itself only uses
   this IP transport for local debugging (`fastmp`, hardcoded to 127.0.0.1).
+- `PvpDraft`: the draft room, a per-player event like the game's own card-picking events.
+  `CardSelectCmd.FromSimpleGrid` (10 cards) and `RelicSelectCmd.FromChooseARelicScreen`
+  (5 × 1 of 3, offers shuffled with the event's per-player RNG) go through the game's
+  `PlayerChoiceSynchronizer`, so both games apply the same picks. It shows the Battleworn
+  Dummy portrait (`EventModel.InitialPortraitPath` patch), since the mod ships no art.
 - `PvpDuel` / `PvpOpponent`: the duel encounter, one proxy monster per player, drawn with the
   player's character visuals (`creature_visuals/<character>`, as the game's own test monsters do).
 - Patches (`Patches.cs`):
-  - `RunManager.CreateRoom`: in duel mode the first room of the run is the duel.
+  - `RunManager.CreateRoom`: in duel mode the run's first room is the draft, the next one the duel.
   - `CreatureCmd.Damage` / `PowerCmd.Apply`: a proxy target is replaced by the player it stands
     for (and dropped when that is the attacker), before damage modifiers run. Co-op is
     lockstep, so both games resolve the same hit the same way.

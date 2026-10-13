@@ -34,6 +34,17 @@ internal static class LocPatch
             ["PVP_OPPONENT.name"] = "Opponent",
             ["PVP_OPPONENT.moves.NOTHING.title"] = "Waiting",
         },
+        ["events"] = new()
+        {
+            ["PVP_DRAFT.title"] = "Duel Draft",
+            ["PVP_DRAFT.pages.INITIAL.description"] =
+                "Before the duel, build your deck: pick 10 cards to add to it, then 5 relics (one out of three each time).",
+            ["PVP_DRAFT.pages.INITIAL.options.DRAFT.title"] = "Draft",
+            ["PVP_DRAFT.pages.INITIAL.options.DRAFT.description"] = "Pick 10 cards, then 5 relics.",
+            ["PVP_DRAFT.cardsPrompt"] = "Choose {Amount} cards to add to your deck",
+            ["PVP_DRAFT.pages.DONE.description"] =
+                "Ready. When both players are done, proceed and pick the next room on the map: it is the duel.",
+        },
         ["encounters"] = new()
         {
             ["PVP_DUEL.title"] = "Duel",
@@ -72,7 +83,7 @@ internal static class NoSavePatch
     }
 }
 
-/// <summary>The run's first room is the duel. Both games run this identically (lockstep).</summary>
+/// <summary>The run's first room is the draft, the next one the duel. Both games run this identically (lockstep).</summary>
 [HarmonyPatch(typeof(RunManager), "CreateRoom")]
 internal static class DuelRoomPatch
 {
@@ -83,6 +94,13 @@ internal static class DuelRoomPatch
             return true;
         }
         var state = (RunState)AccessTools.Property(typeof(RunManager), "State").GetValue(__instance)!;
+        if (!Duel.Drafted)
+        {
+            Duel.Drafted = true;
+            __result = new EventRoom(ModelDb.Event<PvpDraft>());
+            Log.Info("[pvp] draft room created");
+            return false;
+        }
         Duel.Started = true;
         Duel.WatchForForfeit(__instance.NetService);
         __result = new CombatRoom(PvpDuel.For(state.Players), state);
@@ -218,6 +236,19 @@ internal static class ProxyDisplayPatch
         if (player != null)
         {
             creature = player.Creature;
+        }
+    }
+}
+
+/// <summary>The draft event has no art of its own: it shows the Battleworn Dummy portrait.</summary>
+[HarmonyPatch(typeof(EventModel), "InitialPortraitPath", MethodType.Getter)]
+internal static class DraftPortraitPatch
+{
+    private static void Postfix(EventModel __instance, ref string __result)
+    {
+        if (__instance is PvpDraft)
+        {
+            __result = MegaCrit.Sts2.Core.Helpers.ImageHelper.GetImagePath("events/battleworn_dummy.png");
         }
     }
 }
