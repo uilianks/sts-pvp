@@ -42,7 +42,9 @@ Built for game version **v0.107.1** (Steam, public branch).
 
 ## Play
 
-1. Host: **Duel > Host**. The game's co-op character select opens and waits.
+1. Host: **Duel**. The panel lists your IPs (ZeroTier, Hamachi, LAN): click **Copy** next to
+   the one your friend can reach and send it to them. Then **Host**: the game's co-op
+   character select opens and waits.
 2. Other player: **Duel**, type the host's IP, **Join**.
    - Hamachi: the IPv4 at the top of the Hamachi window (`25.x.y.z`).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).

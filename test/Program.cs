@@ -34,4 +34,10 @@ foreach (var name in new[] { "StsPvp.PvpOpponent", "StsPvp.PvpDuel" })
     var t = mod.GetType(name)!;
     Console.WriteLine($"model {t.Name} : {t.BaseType!.Name}");
 }
+// Addresses the Duel panel would offer to copy.
+var find = mod.GetType("StsPvp.LocalAddresses")!.GetMethod("Find")!;
+foreach (var address in (System.Collections.IEnumerable)find.Invoke(null, null)!)
+{
+    Console.WriteLine($"address {address}");
+}
 return failures;

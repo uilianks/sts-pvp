@@ -61,6 +61,9 @@ public static class DuelMenu
         box.AddChild(Label("Host waits for the other player. To join, type the host's IP " +
                            "(Hamachi / ZeroTier / LAN). UDP port " + Duel.Port + ".", 18));
 
+        box.AddChild(Label("Your IP (hosting? send it to your friend):", 20));
+        AddOwnAddresses(box);
+
         var ip = new LineEdit { PlaceholderText = "Host IP, e.g. 25.1.2.3", Text = LoadLastIp() };
         ip.AddThemeFontSizeOverride("font_size", 22);
         box.AddChild(ip);
@@ -114,6 +117,40 @@ public static class DuelMenu
 
         menu.AddChild(overlay);
         ip.GrabFocus();
+    }
+
+    /// <summary>One row per address of this PC (ZeroTier, Hamachi, LAN) with a Copy button.</summary>
+    private static void AddOwnAddresses(VBoxContainer box)
+    {
+        var addresses = LocalAddresses.Find();
+        if (addresses.Count == 0)
+        {
+            box.AddChild(Label("No network address found. Is ZeroTier / Hamachi connected?", 18));
+            return;
+        }
+        foreach (var address in addresses)
+        {
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 12);
+            var kind = address.Kind switch
+            {
+                LocalAddresses.Kind.ZeroTier => "ZeroTier",
+                LocalAddresses.Kind.Hamachi => "Hamachi",
+                _ => "LAN",
+            };
+            var text = Label(kind + ":  " + address.Ip, 22);
+            text.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            row.AddChild(text);
+            var copy = Button("Copy");
+            copy.CustomMinimumSize = new Vector2(120, 40);
+            copy.Pressed += () =>
+            {
+                DisplayServer.ClipboardSet(address.Ip);
+                copy.Text = "Copied!";
+            };
+            row.AddChild(copy);
+            box.AddChild(row);
+        }
     }
 
     private static bool StartHost(NMainMenu menu, Label status)
