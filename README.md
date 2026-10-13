@@ -49,8 +49,9 @@ Built for game version **v0.107.1** (Steam, public branch).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
    - Same LAN: the host's local IP (`192.168.x.y`).
 3. Both pick a character and ready up; the host starts the run.
-4. **Draft**: the run opens on the *Duel Draft* event. Click **Draft**, pick **10 cards** from
-   your character's pool (Common, Uncommon, Rare) to add to your deck, then **5 relics**, one
+4. **Draft**: the run opens on the *Duel Draft* event. Click **Draft** and open **10 packs**
+   of 5 random cards from your character's pool (Common, Uncommon, Rare), keeping one card
+   from each, like a booster draft; then **5 relics**, one
    out of three each time. When both are done, click **Proceed** and pick the next room on
    the map: it is the duel.
 5. The duel: you on the left, the other player on the right,
@@ -61,7 +62,9 @@ Built for game version **v0.107.1** (Steam, public branch).
    attacks and potions aimed at the opponent hit the other player for real (their block,
    Vulnerable, Thorns, etc. all apply).
 7. When a player dies, both see the end screen: **Victory!** or **Defeat**. If the opponent
-   quits mid-duel, you win. Main Menu to play again.
+   quits mid-duel, you win. Click **Continue**, then **Rematch** (above Main Menu): the host
+   hosts again and the other player rejoins the same IP, back to character select. Whoever
+   clicks first waits for the other.
 
 Duel runs are not saved and do not count towards stats or unlocks.
 
@@ -117,13 +120,18 @@ is kept in `workshop/mod_id.txt`, so it updates the same Workshop item. On Windo
 StS2 loads mods natively: `ModManager` reads `<game>/mods/**/<id>.json`, loads `<id>.dll` and
 calls the class marked `[ModInitializer]`; Harmony ships with the game.
 
-- `DuelMenu`: the Duel button (a copy of the Multiplayer button) and the host/join panel.
+- `DuelMenu`: the Duel button (a copy of the Multiplayer button) and the host/join panel, built
+  on the game's `NGenericPopup` / `NVerticalPopup` (its frame and Yes/No buttons, plus a copy
+  for Host). Rematch returns to the main menu, then re-hosts or rejoins the last IP (retrying
+  while the host is not up yet). The Rematch button is a copy of the end screen's
+  `NReturnToMainMenuButton`, shown with it; the end screen also hides the creatures the duel
+  hides (`MoveCreaturesToDifferentLayerAndDisableUi` would show them again).
   Host: `NetHostGameService.StartENetHost(33771, 2)` + the co-op `NCharacterSelectScreen`.
   Join: `JoinFlow` with `ENetClientConnectionInitializer(ip, 33771)`. The game itself only uses
   this IP transport for local debugging (`fastmp`, hardcoded to 127.0.0.1).
 - `PvpDraft`: the draft room, a per-player event like the game's own card-picking events.
-  `CardSelectCmd.FromSimpleGrid` (10 cards) and `RelicSelectCmd.FromChooseARelicScreen`
-  (5 × 1 of 3, offers shuffled with the event's per-player RNG) go through the game's
+  `CardSelectCmd.FromSimpleGrid` (10 packs × 1 of 5, the picked card leaves the pool) and `RelicSelectCmd.FromChooseARelicScreen`
+  (5 × 1 of 3; packs and offers shuffled with the event's per-player RNG) go through the game's
   `PlayerChoiceSynchronizer`, so both games apply the same picks. It shows the Battleworn
   Dummy portrait (`EventModel.InitialPortraitPath` patch), since the mod ships no art.
 - `PvpDuel` / `PvpOpponent`: the duel encounter, one proxy monster per player, drawn with the

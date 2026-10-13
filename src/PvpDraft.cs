@@ -11,8 +11,9 @@ using MegaCrit.Sts2.Core.Models.RelicPools;
 namespace StsPvp;
 
 /// <summary>
-/// The room before the duel: each player picks <see cref="CardCount"/> cards from their
-/// character's pool and then <see cref="RelicCount"/> relics, one out of
+/// The room before the duel: each player opens <see cref="CardCount"/> packs of
+/// <see cref="PackSize"/> random cards from their character's pool, keeping one card from each
+/// (like a booster draft), and then <see cref="RelicCount"/> relics, one out of
 /// <see cref="RelicChoices"/> at a time. A per-player (non-shared) event, like the game's own
 /// card-picking events: the picks go through the game's choice sync, so both games end up with
 /// the same decks and relics.
@@ -20,6 +21,7 @@ namespace StsPvp;
 public sealed class PvpDraft : EventModel
 {
     public const int CardCount = 10;
+    public const int PackSize = 5;
     public const int RelicCount = 5;
     public const int RelicChoices = 3;
 
@@ -40,11 +42,19 @@ public sealed class PvpDraft : EventModel
             .ThenBy(c => c.Id.Entry, StringComparer.Ordinal)
             .Select(c => run.CreateCard(c, owner))
             .ToList();
-        var cards = await CardSelectCmd.FromSimpleGrid(new BlockingPlayerChoiceContext(), pool, owner,
-            new CardSelectorPrefs(L10NLookup("PVP_DRAFT.cardsPrompt"), CardCount));
-        foreach (var card in cards)
+        for (var pack = 0; pack < CardCount; pack++)
         {
-            CardCmd.PreviewCardPileAdd(await CardPileCmd.Add(card, PileType.Deck));
+            Rng.Shuffle(pool);
+            var prompt = L10NLookup("PVP_DRAFT.cardsPrompt");
+            prompt.Add("Pack", pack + 1);
+            prompt.Add("Packs", CardCount);
+            var picked = await CardSelectCmd.FromSimpleGrid(new BlockingPlayerChoiceContext(), pool.Take(PackSize).ToList(), owner,
+                new CardSelectorPrefs(prompt, 1));
+            foreach (var card in picked)
+            {
+                pool.Remove(card);
+                CardCmd.PreviewCardPileAdd(await CardPileCmd.Add(card, PileType.Deck));
+            }
         }
 
         var owned = owner.Relics.Select(r => r.Id).ToHashSet();

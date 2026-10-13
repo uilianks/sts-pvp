@@ -1,5 +1,6 @@
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Context;
@@ -11,7 +12,9 @@ using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Nodes;
 using MegaCrit.Sts2.Core.Nodes.Combat;
+using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
+using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.Core.Rooms;
@@ -38,10 +41,10 @@ internal static class LocPatch
         {
             ["PVP_DRAFT.title"] = "Duel Draft",
             ["PVP_DRAFT.pages.INITIAL.description"] =
-                "Before the duel, build your deck: pick 10 cards to add to it, then 5 relics (one out of three each time).",
+                "Before the duel, build your deck: open 10 packs of 5 cards and keep one card from each, then pick 5 relics (one out of three each time).",
             ["PVP_DRAFT.pages.INITIAL.options.DRAFT.title"] = "Draft",
-            ["PVP_DRAFT.pages.INITIAL.options.DRAFT.description"] = "Pick 10 cards, then 5 relics.",
-            ["PVP_DRAFT.cardsPrompt"] = "Choose {Amount} cards to add to your deck",
+            ["PVP_DRAFT.pages.INITIAL.options.DRAFT.description"] = "Draft 10 cards, one per pack, then 5 relics.",
+            ["PVP_DRAFT.cardsPrompt"] = "Pack {Pack}/{Packs}: choose a card to add to your deck",
             ["PVP_DRAFT.pages.DONE.description"] =
                 "Ready. When both players are done, proceed and pick the next room on the map: it is the duel.",
         },
@@ -249,6 +252,75 @@ internal static class DraftPortraitPatch
         if (__instance is PvpDraft)
         {
             __result = MegaCrit.Sts2.Core.Helpers.ImageHelper.GetImagePath("events/battleworn_dummy.png");
+        }
+    }
+}
+
+/// <summary>
+/// The game over screen lifts every combat creature's visuals above its backdrop, out of their
+/// creature node: the creatures the duel hides (see <c>ArrangeDuelCreature</c>) stay hidden.
+/// </summary>
+[HarmonyPatch(typeof(NGameOverScreen), "MoveCreaturesToDifferentLayerAndDisableUi")]
+internal static class DuelGameOverCreaturesPatch
+{
+    private static void Postfix()
+    {
+        if (!Duel.Active || NCombatRoom.Instance == null)
+        {
+            return;
+        }
+        foreach (var creature in NCombatRoom.Instance.CreatureNodes.Where(c => !c.Visible && c.Visuals != null))
+        {
+            creature.Visuals.Visible = false;
+        }
+    }
+}
+
+/// <summary>
+/// Duel end screen: a Rematch button (a copy of the game's Main Menu button) above Main Menu,
+/// shown together with it.
+/// </summary>
+[HarmonyPatch(typeof(NGameOverScreen), nameof(NGameOverScreen._Ready))]
+internal static class RematchButtonPatch
+{
+    private static void Postfix(NReturnToMainMenuButton ____mainMenuButton)
+    {
+        if (!Duel.Active)
+        {
+            return;
+        }
+        var mainMenu = ____mainMenuButton;
+        // No DuplicateFlags.Signals: the copy must not return to the main menu by itself.
+        var rematch = (NReturnToMainMenuButton)mainMenu.Duplicate((int)(Node.DuplicateFlags.Groups | Node.DuplicateFlags.Scripts | Node.DuplicateFlags.UseInstantiation));
+        rematch.Name = "RematchButton";
+        mainMenu.AddSibling(rematch);
+        // Above Main Menu: the spot it slides into when shown (its _Ready computed one from the copy).
+        var spot = mainMenu.Position + new Vector2(0, -(mainMenu.Size.Y + 16));
+        Traverse.Create(rematch).Field("_showPosition").SetValue(spot);
+        rematch.Position = spot;
+        rematch.GetNode<MegaLabel>("Label").SetTextAutoSize("Rematch");
+        rematch.Disable();
+        rematch.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
+        {
+            rematch.Disable();
+            mainMenu.Disable();
+            DuelMenu.Rematch();
+        }));
+        Log.Info($"[pvp] rematch button added under {mainMenu.GetParent().GetType().Name} at {rematch.Position} (main menu at {mainMenu.Position}, size {mainMenu.Size})");
+    }
+}
+
+/// <summary>The Rematch button shows up whenever the game shows its Main Menu button.</summary>
+[HarmonyPatch(typeof(NReturnToMainMenuButton), "OnEnable")]
+internal static class RematchButtonShowPatch
+{
+    private static void Postfix(NReturnToMainMenuButton __instance)
+    {
+        if (Duel.Active && __instance.Name != "RematchButton" &&
+            __instance.GetParent()?.GetNodeOrNull<NReturnToMainMenuButton>("RematchButton") is { } rematch)
+        {
+            rematch.Enable();
+            Log.Info($"[pvp] rematch button shown at {rematch.Position}, visible {rematch.IsVisibleInTree()}");
         }
     }
 }

@@ -1,11 +1,15 @@
 using Godot;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
+using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Multiplayer.Connection;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
+using MegaCrit.Sts2.Core.Nodes;
+using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Multiplayer;
 using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.Core.Runs;
@@ -19,10 +23,16 @@ namespace StsPvp;
 public static class DuelMenu
 {
     private const ulong ClientNetId = 1000;
+    private const int RematchJoinAttempts = 30;
+    private const float DescriptionHeight = 120;
     private const string LastIpSetting = "user://stspvp_last_ip.txt";
 
     // --pvp-host / --pvp-join=<ip> launch arguments (used by simulate.sh): done once per launch.
     private static bool _autoStartDone;
+
+    // Set by Rematch on the duel end screen, used once back on the main menu.
+    private static bool _rematchPending;
+    private static bool _rematchAsHost;
 
     /// <summary>Adds the Duel button right under Multiplayer. Called once the main menu is ready.</summary>
     public static void AddButton(NMainMenu menu, NMainMenuTextButton multiplayerButton)
@@ -35,7 +45,20 @@ public static class DuelMenu
         duel.SetLocalization("PVP_DUEL");
         duel.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ => OpenPanel(menu)));
 
-        if (!_autoStartDone)
+        if (_rematchPending)
+        {
+            _rematchPending = false;
+            _autoStartDone = true;
+            if (_rematchAsHost)
+            {
+                OpenPanel(menu, autoHost: true);
+            }
+            else
+            {
+                OpenPanel(menu, autoJoinIp: LoadLastIp(), waitForHost: true);
+            }
+        }
+        else if (!_autoStartDone)
         {
             _autoStartDone = true;
             if (CommandLineHelper.HasArg("pvp-host"))
@@ -49,75 +72,80 @@ public static class DuelMenu
         }
     }
 
-    private static void OpenPanel(NMainMenu menu, bool autoHost = false, string? autoJoinIp = null)
+    /// <summary>
+    /// The host/join popup, built on the game's own popup (frame, title, Yes/No buttons) with the
+    /// IP rows and field added in the game's font.
+    /// </summary>
+    private static void OpenPanel(NMainMenu menu, bool autoHost = false, string? autoJoinIp = null, bool waitForHost = false)
     {
-        var overlay = new ColorRect { Color = new Color(0, 0, 0, 0.6f), Name = "DuelPanel" };
-        overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        overlay.MouseFilter = Control.MouseFilterEnum.Stop;
-
-        var panel = new PanelContainer();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-        panel.GrowHorizontal = Control.GrowDirection.Both;
-        panel.GrowVertical = Control.GrowDirection.Both;
-        panel.CustomMinimumSize = new Vector2(560, 0);
-        overlay.AddChild(panel);
-
-        var margin = new MarginContainer();
-        foreach (var side in new[] { "left", "right", "top", "bottom" })
+        var modal = NModalContainer.Instance;
+        var popup = NGenericPopup.Create();
+        if (modal == null || popup == null)
         {
-            margin.AddThemeConstantOverride("margin_" + side, 24);
+            return;
         }
-        panel.AddChild(margin);
+        modal.Add(popup);
+        var frame = popup.GetNode<NVerticalPopup>("VerticalPopup");
+        frame.SetText("Duel", "Host and wait for your friend, or type the host's IP and join " +
+                              "(ZeroTier / Hamachi / LAN, UDP port " + Duel.Port + ").");
+        var body = frame.GetNode<Control>("Description");
+        _font = body.GetThemeFont(ThemeConstants.RichTextLabel.NormalFont);
 
-        var box = new VBoxContainer();
-        box.AddThemeConstantOverride("separation", 14);
-        margin.AddChild(box);
+        var join = frame.YesButton;
+        join.IsYes = true;
+        join.SetText("Join");
+        var cancel = frame.NoButton;
+        cancel.Visible = true;
+        cancel.IsYes = false;
+        cancel.SetText("Cancel");
+        // A third button, a copy of Join without its hotkey (Enter stays on Join).
+        var host = (NPopupYesNoButton)join.Duplicate((int)(Node.DuplicateFlags.Groups | Node.DuplicateFlags.Scripts | Node.DuplicateFlags.UseInstantiation));
+        host.Name = "HostButton";
+        frame.AddChild(host);
+        host.DisconnectHotkeys();
+        host.SetText("Host");
 
-        box.AddChild(Label("Duel", 34));
-        box.AddChild(Label("Host waits for the other player. To join, type the host's IP " +
-                           "(Hamachi / ZeroTier / LAN). UDP port " + Duel.Port + ".", 18));
-
-        box.AddChild(Label("Your IP (hosting? send it to your friend):", 20));
+        var box = new VBoxContainer { Name = "DuelContent" };
+        box.AddThemeConstantOverride("separation", 10);
+        box.AddChild(Label("Your IP (hosting? send it to your friend):", 22));
         AddOwnAddresses(box);
-
-        var ip = new LineEdit { PlaceholderText = "Host IP, e.g. 25.1.2.3", Text = LoadLastIp() };
-        ip.AddThemeFontSizeOverride("font_size", 22);
+        var ip = new NMegaLineEdit { PlaceholderText = "Host IP, e.g. 25.1.2.3", Text = LoadLastIp(), CustomMinimumSize = new Vector2(0, 52) };
+        StyleField(ip);
         box.AddChild(ip);
-
-        var status = Label("", 18);
+        var status = Label("", 20);
         status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(status);
-
-        var buttons = new HBoxContainer();
-        buttons.AddThemeConstantOverride("separation", 12);
-        box.AddChild(buttons);
-        var host = Button("Host");
-        var join = Button("Join");
-        var cancel = Button("Cancel");
-        buttons.AddChild(host);
-        buttons.AddChild(join);
-        buttons.AddChild(cancel);
+        frame.AddChild(box);
+        LayOut(body, box, host, join, cancel);
 
         void SetBusy(bool busy)
         {
-            host.Disabled = busy;
-            join.Disabled = busy;
+            host.Visible = !busy;
+            join.Visible = !busy;
             ip.Editable = !busy;
         }
 
-        cancel.Pressed += () =>
+        void Close()
+        {
+            if (GodotObject.IsInstanceValid(popup) && !popup.IsQueuedForDeletion())
+            {
+                modal.Clear();
+            }
+        }
+
+        cancel.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
         {
             Duel.Reset();
-            overlay.QueueFree();
-        };
-        host.Pressed += () =>
+            Close();
+        }));
+        host.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
         {
             if (StartHost(menu, status))
             {
-                overlay.QueueFree();
+                Close();
             }
-        };
-        join.Pressed += () =>
+        }));
+        void Join()
         {
             var address = ip.Text.Trim();
             if (address.Length == 0)
@@ -128,21 +156,43 @@ public static class DuelMenu
             SaveLastIp(address);
             SetBusy(true);
             status.Text = "Connecting to " + address + ":" + Duel.Port + " ...";
-            TaskHelper.RunSafely(JoinAsync(menu, address, status, overlay, SetBusy));
-        };
-
-        menu.AddChild(overlay);
-        ip.GrabFocus();
+            TaskHelper.RunSafely(JoinAsync(menu, address, status, popup, Close, SetBusy, waitForHost));
+        }
+        join.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ => Join()));
+        ip.TextSubmitted += _ => Join();
 
         if (autoHost)
         {
-            host.EmitSignal(BaseButton.SignalName.Pressed);
+            if (StartHost(menu, status))
+            {
+                Close();
+            }
         }
         else if (autoJoinIp != null)
         {
             ip.Text = autoJoinIp;
-            join.EmitSignal(BaseButton.SignalName.Pressed);
+            Join();
         }
+        else
+        {
+            ip.GrabFocus();
+        }
+    }
+
+    /// <summary>
+    /// Places the added rows under the popup's description and moves the buttons below them,
+    /// Host / Join / Cancel side by side; the popup's frame grows to fit.
+    /// </summary>
+    private static void LayOut(Control body, VBoxContainer box, Control host, Control join, Control cancel)
+    {
+        // The description fills the popup down to its buttons: keep only its top for the text.
+        body.MouseFilter = Control.MouseFilterEnum.Ignore;
+        body.AnchorBottom = 0;
+        body.OffsetBottom = body.OffsetTop + DescriptionHeight;
+        box.Position = new Vector2(body.Position.X, body.Position.Y + DescriptionHeight);
+        box.CustomMinimumSize = new Vector2(body.Size.X, 0);
+        // Cancel stays left, Join right, Host goes between them.
+        host.Position = new Vector2((cancel.Position.X + join.Position.X) / 2, join.Position.Y);
     }
 
     /// <summary>One row per address of this PC (ZeroTier, Hamachi, LAN) with a Copy button.</summary>
@@ -198,35 +248,62 @@ public static class DuelMenu
         return true;
     }
 
-    private static async Task JoinAsync(NMainMenu menu, string address, Label status, Control overlay, Action<bool> setBusy)
+    private static async Task JoinAsync(NMainMenu menu, string address, Label status, Control popup, Action close, Action<bool> setBusy, bool waitForHost)
     {
-        Duel.Begin();
-        var flow = new JoinFlow();
-        try
+        // A rematch joiner may get there before the host is hosting again: keep trying for a while.
+        for (var attempt = 1; ; attempt++)
         {
-            var initializer = new ENetClientConnectionInitializer(ClientNetId, address, Duel.Port);
-            var result = await flow.Begin(initializer, menu.GetTree());
-            if (result.sessionState == RunSessionState.InLobby && result.gameMode == GameMode.Standard && result.joinResponse.HasValue)
+            Duel.Begin();
+            var flow = new JoinFlow();
+            try
             {
-                var lobby = menu.SubmenuStack.GetSubmenuType<NCharacterSelectScreen>();
-                lobby.InitializeMultiplayerAsClient(flow.NetService!, result.joinResponse.Value);
-                menu.SubmenuStack.Push(lobby);
-                overlay.QueueFree();
-                return;
+                var initializer = new ENetClientConnectionInitializer(ClientNetId, address, Duel.Port);
+                var result = await flow.Begin(initializer, menu.GetTree());
+                if (result.sessionState == RunSessionState.InLobby && result.gameMode == GameMode.Standard && result.joinResponse.HasValue)
+                {
+                    var lobby = menu.SubmenuStack.GetSubmenuType<NCharacterSelectScreen>();
+                    lobby.InitializeMultiplayerAsClient(flow.NetService!, result.joinResponse.Value);
+                    menu.SubmenuStack.Push(lobby);
+                    close();
+                    return;
+                }
+                flow.NetService?.Disconnect(NetError.InternalError);
+                if (!await Retry())
+                {
+                    Fail("The host is not in a duel lobby (it is " + result.sessionState + ", " + result.gameMode + ").");
+                }
+                else
+                {
+                    continue;
+                }
             }
-            Fail("The host is not in a duel lobby (it is " + result.sessionState + ", " + result.gameMode + ").");
-            flow.NetService?.Disconnect(NetError.InternalError);
-        }
-        catch (ClientConnectionFailedException e)
-        {
-            Fail("Could not connect: " + e.info.GetReason() + ". Check the IP, that the host clicked Host, and the firewall.");
-            flow.NetService?.Disconnect(e.info.GetReason());
-        }
-        catch (Exception e)
-        {
-            Log.Error("[pvp] join failed: " + e);
-            Fail("Could not connect: " + e.Message);
-            flow.NetService?.Disconnect(NetError.InternalError);
+            catch (ClientConnectionFailedException e)
+            {
+                flow.NetService?.Disconnect(e.info.GetReason());
+                if (await Retry())
+                {
+                    continue;
+                }
+                Fail("Could not connect: " + e.info.GetReason() + ". Check the IP, that the host clicked Host, and the firewall.");
+            }
+            catch (Exception e)
+            {
+                Log.Error("[pvp] join failed: " + e);
+                Fail("Could not connect: " + e.Message);
+                flow.NetService?.Disconnect(NetError.InternalError);
+            }
+            return;
+
+            async Task<bool> Retry()
+            {
+                if (!waitForHost || attempt >= RematchJoinAttempts || !GodotObject.IsInstanceValid(popup))
+                {
+                    return false;
+                }
+                status.Text = "Waiting for the host to start the rematch...";
+                await menu.ToSignal(menu.GetTree().CreateTimer(2.0), SceneTreeTimer.SignalName.Timeout);
+                return GodotObject.IsInstanceValid(popup) && !popup.IsQueuedForDeletion();
+            }
         }
 
         void Fail(string message)
@@ -240,18 +317,73 @@ public static class DuelMenu
         }
     }
 
+    /// <summary>
+    /// The duel end screen's Rematch: back to the main menu, where the host hosts again and the
+    /// other player rejoins the same IP (waiting for the host if it gets there first).
+    /// </summary>
+    public static void Rematch()
+    {
+        var net = RunManager.Instance.NetService;
+        _rematchAsHost = net.Type == NetGameType.Host;
+        _rematchPending = true;
+        Log.Info("[pvp] rematch as " + (_rematchAsHost ? "host" : "client"));
+        if (_rematchAsHost)
+        {
+            net.Disconnect(NetError.QuitGameOver);
+        }
+        TaskHelper.RunSafely(NGame.Instance!.ReturnToMainMenuAfterRun());
+    }
+
+    // Text in the game's font (the popup description's), gold-tinted like the game's labels.
+    private static Font? _font;
+
     private static Label Label(string text, int size)
     {
         var label = new Label { Text = text };
-        label.AddThemeFontSizeOverride("font_size", size);
+        if (_font != null)
+        {
+            label.AddThemeFontOverride(ThemeConstants.Label.Font, _font);
+        }
+        label.AddThemeFontSizeOverride(ThemeConstants.Label.FontSize, size);
+        label.AddThemeColorOverride("font_color", new Color("fff6e2"));
+        label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.6f));
+        label.AddThemeConstantOverride(ThemeConstants.Label.OutlineSize, 6);
         return label;
     }
 
     private static Button Button(string text)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new Vector2(150, 48) };
-        button.AddThemeFontSizeOverride("font_size", 22);
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(110, 40), FocusMode = Control.FocusModeEnum.None };
+        StyleField(button);
+        button.AddThemeColorOverride("font_hover_color", new Color("f0b400"));
         return button;
+    }
+
+    /// <summary>Dark inset with a thin gold edge, like the game's search and seed fields.</summary>
+    private static void StyleField(Control control)
+    {
+        if (_font != null)
+        {
+            control.AddThemeFontOverride("font", _font);
+        }
+        control.AddThemeFontSizeOverride("font_size", 22);
+        control.AddThemeColorOverride("font_color", new Color("fff6e2"));
+        control.AddThemeColorOverride("font_placeholder_color", new Color(1, 0.96f, 0.89f, 0.4f));
+        foreach (var (state, border) in new[] { ("normal", 0.45f), ("focus", 1f), ("hover", 0.8f), ("pressed", 1f), ("read_only", 0.3f) })
+        {
+            var style = new StyleBoxFlat
+            {
+                BgColor = new Color(0.05f, 0.07f, 0.09f, 0.85f),
+                BorderColor = new Color(0.94f, 0.71f, 0f, border),
+                ContentMarginLeft = 14,
+                ContentMarginRight = 14,
+                ContentMarginTop = 6,
+                ContentMarginBottom = 6,
+            };
+            style.SetBorderWidthAll(2);
+            style.SetCornerRadiusAll(6);
+            control.AddThemeStyleboxOverride(state, style);
+        }
     }
 
     private static string LoadLastIp()
