@@ -1,0 +1,123 @@
+{
+ "evidence_id": "ev_7444395777dd92ac9c850f8e95cfb9296b8614a9fd6b36a90e10493666812866",
+ "operation": "inspect_managed_artifact",
+ "provider": {
+  "id": "rea-dotnet-static",
+  "name": "REA managed static analysis provider",
+  "version": "1"
+ },
+ "normalized_result_summary": {
+  "artifact": {
+   "path": "/home/uiliank/.local/share/Steam/steamapps/common/Slay the Spire 2/data_sts2_linuxbsd_x86_64/sts2.dll",
+   "sha256": "d13f3f150b1413b24c3a9c5575cdf5398dc74270877d55dec9a556dd8150bd03",
+   "byte_length": 9363456,
+   "format": "pe"
+  },
+  "pe": {
+   "machine": 34404,
+   "machine_hex": "0x8664",
+   "architecture": "x86_64",
+   "optional_header": "pe32-plus",
+   "section_count": 2,
+   "characteristics": 8226,
+   "cli": {
+    "header_offset": 512,
+    "header_size": 72,
+    "runtime_version": "2.5",
+    "flags": 1,
+    "flag_names": [
+     "il-only"
+    ],
+    "entry_point": {
+     "kind": "none",
+     "value": null
+    },
+    "metadata_rva": 4401732,
+    "metadata_size": 4967216,
+    "resources_rva": 0,
+    "resources_size": 0,
+    "strong_name_rva": 0,
+    "strong_name_size": 0,
+    "managed_native_header_rva": 0,
+    "managed_native_header_size": 0,
+    "ready_to_run_signature": false
+   }
+  },
+  "classification": {
+   "status": "managed",
+   "container": "pe",
+   "runtime_family": "modern-dotnet",
+   "implementation": "cil",
+   "managed_architecture": "x86_64",
+   "evidence": [
+    {
+     "code": "cli-header-observed",
+     "detail": "A file-backed PE CLI header and metadata root were admitted.",
+     "file_offset": 512
+    },
+    {
+     "code": "target-framework-observed",
+     "detail": "An assembly-level TargetFrameworkAttribute names modern .NET.",
+     "file_offset": 6299068
+    },
+    {
+     "code": "managed-architecture-derived",
+     "detail": "Managed architecture x86_64 is derived from PE machine and CLI flags.",
+     "file_offset": 528
+    }
+   ]
+  },
+  "metadata": {
+   "status": "complete",
+   "version": "v4.0.30319",
+   "stream_names": [
+    "#Blob",
+    "#GUID",
+    "#Strings",
+    "#US",
+    "#~"
+   ],
+   "table_row_counts": {
+    "Module": 1,
+    "TypeRef": 771,
+    "TypeDef": 9409,
+    "Field": 40037,
+    "MethodDef": 49738,
+    "Param": 31398,
+    "InterfaceImpl": 3240,
+    "MemberRef": 11442,
+    "Constant": 3059,
+    "CustomAttribute": 58698,
+    "DeclSecurity": 1,
+    "ClassLayout": 17,
+    "StandAloneSig": 8418,
+    "EventMap": 103,
+    "Event": 216,
+    "PropertyMap": 2636,
+    "Property": 9776,
+    "MethodSemantics": 11674,
+    "MethodImpl": 5455,
+    "TypeSpec": 3943,
+    "FieldRVA": 23,
+    "Assembly": 1,
+    "AssemblyRef": 30,
+    "NestedClass": 5982,
+    "GenericParam": 283,
+    "MethodSpec": 13510,
+    "GenericParamConstraint": 247
+   }
+  },
+  "module": {
+   "name": "sts2.dll",
+   "generation": 0,
+   "mvid": "64622899-e36c-49f2-b463-1b26ad68cbd5",
+   "enc_id": null,
+   "enc_base_id": null,
+   "token": "0x00000001",
+   "row_offset": 4394292
+  }
+ },
+ "limitations": [
+  "Static inspection did not load the assembly, resolve dependencies through a CLR, decompile C#, or execute target code."
+ ]
+}

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Slay the Spire 2 PvP mod. GameDir: the folder with SlayTheSpire2 / data_sts2_* (override with -p:GameDir=...). -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>StsPvp</AssemblyName>
+    <RootNamespace>StsPvp</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GameDir Condition="'$(GameDir)' == ''">$(HOME)/.local/share/Steam/steamapps/common/Slay the Spire 2</GameDir>
+    <GameData Condition="Exists('$(GameDir)/data_sts2_linuxbsd_x86_64')">$(GameDir)/data_sts2_linuxbsd_x86_64</GameData>
+    <GameData Condition="'$(GameData)' == '' And Exists('$(GameDir)/data_sts2_windows_x86_64')">$(GameDir)/data_sts2_windows_x86_64</GameData>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="test/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="sts2" HintPath="$(GameData)/sts2.dll" Private="false" />
+    <Reference Include="GodotSharp" HintPath="$(GameData)/GodotSharp.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(GameData)/0Harmony.dll" Private="false" />
+  </ItemGroup>
+</Project>

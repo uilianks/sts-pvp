@@ -1,0 +1,11 @@
+{
+  "id": "StsPvp",
+  "name": "PvP Duel",
+  "author": "uilianks",
+  "description": "Adds a Duel button to the main menu: two players fight each other over LAN, Hamachi or ZeroTier, using the game's own co-op connection.",
+  "version": "1.0.0",
+  "has_dll": true,
+  "has_pck": false,
+  "affects_gameplay": true,
+  "min_game_version": "0.107.1"
+}

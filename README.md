@@ -1,125 +1,121 @@
-# sts-pvp
+# sts-pvp: Slay the Spire 2 Duel
 
-Slay the Spire PvP: two players, each on their own PC, fight each other over a virtual LAN
-(Hamachi or ZeroTier) or a real one. Works with **Slay the Spire 1** (the Steam game
-"Slay the Spire", not Slay the Spire 2). No ModTheSpire needed, and the game install is not
-changed: the mod only runs when you start the game through `run.bat` / `run.sh`.
+A Slay the Spire 2 mod that adds a **Duel** button to the main menu: two players, each on their
+own PC, fight each other. It reuses the game's own co-op: same lobby, same character select,
+same turn sync, connected by IP, so it works over LAN, Hamachi or ZeroTier.
 
-## Setup
+Built for game version **v0.107.1** (Steam, public branch).
 
-Both players need:
+## Setup (both players)
 
-- Slay the Spire on Steam, updated, on the normal branch (Steam > Slay the Spire > Properties >
-  Betas: "None"). Both games must be the same version.
-- The same `sts-pvp.jar`. The jar is not in this repo (it contains a patched copy of one game
-  class), so either get it from the other player or build it yourself (see below).
-- The same virtual network: both join the same Hamachi network or the same ZeroTier network
-  (on ZeroTier, the network admin must tick "Auth" for both PCs in ZeroTier Central).
+1. **Same game version** on both PCs: Steam > Slay the Spire 2 > Properties > Betas: "None".
+2. **Get the mod folder** `StsPvp` (it holds `StsPvp.dll` and `StsPvp.json`): ask the other
+   player for it, or build it (see below).
+3. **Put it in the game's `mods` folder.** Steam > right click Slay the Spire 2 > Manage >
+   Browse local files. Create a folder named `mods` there if it does not exist, and copy the
+   `StsPvp` folder into it:
 
-### Windows
+       Slay the Spire 2/
+         SlayTheSpire2(.exe)
+         mods/
+           StsPvp/
+             StsPvp.dll
+             StsPvp.json
 
-1. Get `sts-pvp.jar` and `run.bat` (from the other player, or build them, see below).
-2. Open the game folder: Steam > right click Slay the Spire > Manage > Browse local files.
-   It contains `desktop-1.0.jar` and a `jre` folder.
-3. Copy `sts-pvp.jar` and `run.bat` into that folder.
-4. Open a terminal there: click the folder's address bar, type `cmd`, press Enter.
-5. Start the game in that terminal:
-   - the host: `run.bat host`
-   - the other player: `run.bat join <host IP>`
+   On Linux, `./install.sh` does this.
+4. **Start the game from Steam.** The first time, the game asks whether to load mods: accept.
+   The main menu then shows **Duel** under Multiplayer.
+5. **Same mods on both PCs.** Co-op checks that both games match, so any other mod has to be
+   on both sides too. If one of you has extra mods (e.g. from the Workshop), turn them off in
+   *Mod Configuration* in the main menu.
+6. **Same virtual network**: both in the same Hamachi network, or the same ZeroTier network
+   (the ZeroTier admin must tick "Auth" for both PCs in ZeroTier Central).
 
-   The host IP is the host's address on the virtual network: in Hamachi, the IPv4 shown at the
-   top of the window (`25.x.y.z`); in ZeroTier, the "Managed IP" of the network
-   (`zerotier-cli listnetworks`, or ZeroTier Central).
-6. The first time the host runs it, Windows asks whether Java may use the network: allow it
-   (tick private networks; Hamachi/ZeroTier networks may count as public, tick that too).
+## Play
 
-To play the normal game again, start it from Steam as usual.
+1. Host: **Duel > Host**. The game's co-op character select opens and waits.
+2. Other player: **Duel**, type the host's IP, **Join**.
+   - Hamachi: the IPv4 at the top of the Hamachi window (`25.x.y.z`).
+   - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
+   - Same LAN: the host's local IP (`192.168.x.y`).
+3. Both pick a character and ready up; the host starts the run.
+4. The run opens straight into the duel. The enemy is the other player, drawn as their
+   character, with their real HP, block and powers on it.
+5. Turns are simultaneous like in co-op: play your cards, end turn; the next turn starts when
+   both ended. Attacks, debuffs, area attacks and potions aimed at the opponent hit the other
+   player for real (their block, Vulnerable, Thorns, etc. all apply).
+6. When a player dies, both see the end screen: **Victory!** or **Defeat**. Main Menu to play again.
 
-### Linux
+Duel runs are not saved and do not count towards stats or unlocks.
 
-    ./run.sh host              # the host
-    ./run.sh join <host IP>    # the other player
+### Firewall
 
-`run.sh` builds the jar first if `dist/sts-pvp.jar` is missing. If the game is not in the
-default Steam folder, set it: `STS_DIR=/path/to/SlayTheSpire ./run.sh host`. If the host has a
-firewall, open TCP port 24680 (`sudo ufw allow 24680/tcp` or
-`sudo firewall-cmd --add-port=24680/tcp`).
-
-### Play the duel
-
-1. Both start the game with the commands above (host first is easiest, the other player
-   keeps retrying until the host is up).
-2. Both start a new run, any character, any Neow bonus.
-3. Both enter the first fight on the map. That fight is the duel: the enemy is the other
-   player. If one arrives first, they see "Waiting for opponent..." until the other gets there.
+The host listens on **UDP 33771** (the game's own co-op port).
+- Windows: when Windows asks whether Slay the Spire 2 may use the network, allow it for
+  private and public networks (Hamachi/ZeroTier adapters are often "public").
+- Linux: `sudo ufw allow 33771/udp` or `sudo firewall-cmd --add-port=33771/udp`.
 
 ### Troubleshooting
 
-- Stuck on "Waiting for opponent...": check that `ping <host IP>` works from the other PC,
-  that both used the same port, and that the host's firewall allows Java / port 24680.
-- Port 24680 is taken or blocked: pick another one, the same on both sides:
-  `run.bat host 30000` and `run.bat join <host IP> 30000`.
-- `run.bat` says "usage": it was double clicked; run it from a terminal with `host` or `join`.
-- The terminal window shows lines starting with `[pvp]`: they say whether it is hosting,
-  joining or connected.
+- *Could not connect*: from the joining PC, `ping <host IP>` must work; the host must have
+  clicked Host first; check the firewall above.
+- *Could not host*: another copy of the game is already hosting on this PC.
+- *Not in a duel lobby*: the host opened normal Multiplayer instead of Duel.
+- The Duel button is missing: the mod is not loaded. Check the folder layout above and that
+  mods were accepted (Mod Configuration in the main menu lists it as enabled).
+- Game log: Linux `~/.local/share/SlayTheSpire2/logs/`, Windows
+  `%APPDATA%\SlayTheSpire2\logs\`; the mod's lines start with `[pvp]`.
 
-### Building the jar
+## Build
 
-Needs a JDK 11 or newer (`javac`, `jar`) and the game installed.
+Needs the .NET 9 SDK and the game installed.
 
-- Linux: `./build.sh` → `dist/sts-pvp.jar` and `dist/run.bat`.
-- Windows: install a JDK (e.g. Temurin 17) and Git for Windows, then in Git Bash, in this repo:
+    ./build.sh      # dist/StsPvp/, then checks every Harmony patch against the installed game
+    ./install.sh    # copies dist/StsPvp into <game>/mods/
+    ./uninstall.sh
 
-      STS_DIR="/c/Program Files (x86)/Steam/steamapps/common/SlayTheSpire" ./build.sh
-
-  (adjust the path if the Steam library is elsewhere). The result is in `dist/`.
-
-## Rules
-
-- The enemy is the other player, drawn as their character, with their real HP and block.
-- Turns are simultaneous: play your cards, end turn; the next turn starts once both ended
-  ("Waiting for opponent..."). The fight also waits at the start until both are in it.
-- Your damage is resolved by your game (strength, Vulnerable on the opponent, relics like
-  The Boot) and applied by theirs to their real player (their block, Buffer, Intangible,
-  Thorns hits you back, etc.). Poison and HP loss go through as HP loss.
-- The duel ends when a player dies; the winner gets normal combat rewards. If the opponent
-  disconnects, you win. One duel per launch; after it the game plays normally.
-- The run is flagged as modded, so no achievements, leaderboards or metrics.
+`STS2_DIR=/path/to/Slay the Spire 2` overrides the game folder. On Windows, build with
+`dotnet build StsPvp.csproj -c Release -o build -p:GameDir="C:\...\Slay the Spire 2"`.
 
 ## How it works
 
-`tools/PatchGetEncounter.java` prepends to `MonsterHelper.getEncounter(String)`, which every
-combat room uses to build its monsters: `MonsterGroup duel = pvp.Pvp.encounter(); if (duel != null) return duel;`.
-The patched class sits in `sts-pvp.jar` ahead of `desktop-1.0.jar` on the classpath and
-shadows the original.
+StS2 loads mods natively: `ModManager` reads `<game>/mods/**/<id>.json`, loads `<id>.dll` and
+calls the class marked `[ModInitializer]`; Harmony ships with the game.
 
-- `Net`: one TCP line protocol (`HELLO class`, `STATE hp maxHp block`, `HIT amount type`, `SYNC n`).
-- `Pvp`: session, message handling on the game thread, a background thread streaming the
-  local player's HP/block (so a death is reported even when combat stops updating).
-- `OpponentMonster`: mirrors the remote player; `damage()` runs the game's own damage
-  resolution against a probe HP with no block and forwards the HP that would have been lost;
-  its turn is only the barrier.
-- `WaitForOpponentAction`: holds the action queue until the other game reaches the same barrier.
+- `DuelMenu`: the Duel button (a copy of the Multiplayer button) and the host/join panel.
+  Host: `NetHostGameService.StartENetHost(33771, 2)` + the co-op `NCharacterSelectScreen`.
+  Join: `JoinFlow` with `ENetClientConnectionInitializer(ip, 33771)`. The game itself only uses
+  this IP transport for local debugging (`fastmp`, hardcoded to 127.0.0.1).
+- `PvpDuel` / `PvpOpponent`: the duel encounter, one proxy monster per player, drawn with the
+  player's character visuals (`creature_visuals/<character>`, as the game's own test monsters do).
+- Patches (`Patches.cs`):
+  - `RunManager.CreateRoom`: in duel mode the first room of the run is the duel.
+  - `CreatureCmd.Damage` / `PowerCmd.Apply`: a proxy target is replaced by the player it stands
+    for (and dropped when that is the attacker), before damage modifiers run. Co-op is
+    lockstep, so both games resolve the same hit the same way.
+  - `CreatureCmd.Kill`: one player dead decides the duel; both games show the game over screen,
+    `NGameOverScreen.InitializeBannerAndQuote` sets the Victory/Defeat banner.
+  - `NCreatureStateDisplay.SetCreature`: the proxy shows its player's HP, block and powers.
+  - `RunManager.SetUpNewMultiplayer`: duel runs are not saved.
+  - `LocManager.SetLanguageInternal`: the mod's strings (no .pck) are merged into the tables.
+- Your own proxy is hidden on your screen (scene-tree hook, not a `_Ready` patch).
 
 ## Findings
 
-REA 6.4.0 (`~/Projetos/rea`) cannot analyse JVM bytecode: on a `.class` it reads the
-`CAFEBABE` magic as a Mach-O FAT header and rejects it (`analysis/rea.inspect-MonsterHelper.json`),
-and it refuses `desktop-1.0.jar` itself (see `sts-instawin/analysis`). The game bytecode was
-read with `javap` instead:
-
-- `MonsterRoom.onPlayerEntry` → `AbstractDungeon.getMonsterForRoomCreation` → `MonsterHelper.getEncounter`
-  (also used for elites and bosses).
-- `InstantKillAction` sets `currentHealth = 0` then calls `damage(HP_LOSS 0)`; `OpponentMonster`
-  detects such direct HP changes and forwards them as HP loss.
-- Characters' idle skeletons: `images/characters/{ironclad,theSilent,defect,watcher}/idle/skeleton.{atlas,json}`,
-  animation `Idle`.
+- REA 6.4.0 (`~/Projetos/rea`): `inspect-artifact` classifies `sts2.dll` as a PE and points to
+  managed inspection; `inspect-managed-artifact` identifies modern .NET (net9.0) IL-only with
+  9,409 types / 49,738 methods (`analysis/`). `inspect-managed-members` could not admit the
+  metadata of this assembly ("managed member inspection is unavailable"), so the code was read
+  by decompiling with ILSpy (`ilspycmd`), not committed.
+- On Linux every Harmony patch fails with `mm-exhelper.so: undefined symbol: _Unwind_RaiseException`
+  unless `libgcc_s.so.1` is loaded with `RTLD_GLOBAL` first (BaseLib does the same); the mod does
+  this at startup. Godot callbacks (`_Ready`) are not patched at all.
 
 ## Verified / not verified
 
-Verified: the build; the patched `getEncounter` loads from the mod jar; every mod class and the
-patched class pass `-Xverify:all` on the game's bundled Java 1.8.0_131; host/client exchange over
-loopback (`test/VerifyAndNetTest.java`).
+Verified on Linux, game v0.107.1:
+- builds; `test/` applies every patch to the real `sts2.dll` (run by `build.sh`);
+- in game: the mod loads, all patches apply, the **Duel** button shows in the main menu.
 
-Not verified: an actual duel in game (needs two players), how the mirrored opponent looks
-(position, facing), and play across Hamachi.
+Not verified: an actual duel between two PCs (host/join, the proxy display, damage
+redirection, the end screen), Windows, and play across Hamachi/ZeroTier.
