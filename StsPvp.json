@@ -3,7 +3,7 @@
   "name": "PvP Duel",
   "author": "uilianks",
   "description": "Adds a Duel button to the main menu: 2 to 4 players fight each other, free-for-all. Quick Match against a random opponent or a room code for friends over Steam, or by IP over LAN, Hamachi or ZeroTier, using the game's own co-op connection.",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "has_dll": true,
   "has_pck": false,
   "affects_gameplay": true,

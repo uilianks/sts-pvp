@@ -5,11 +5,13 @@ using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Context;
+using MegaCrit.Sts2.Core.Debug;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Map;
+using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Nodes;
 using MegaCrit.Sts2.Core.Nodes.Combat;
@@ -25,6 +27,29 @@ using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.ValueProps;
 
 namespace StsPvp;
+
+// ---- Startup ---------------------------------------------------------------------------------
+
+/// <summary>
+/// Modded, the game hands native Sentry a reject-all sampler, then closes the native SDK in
+/// <c>AfterGameInit</c>. When the sampler lands after the extension initialised (Steam's Workshop
+/// scan makes mod loading slow enough), the closed SDK later calls through a dangling pointer and
+/// the game segfaults at the main menu. The game's own note says the native SDK must stay open
+/// until exit: keep the managed shutdown, skip the native one; every event is still rejected.
+/// </summary>
+[HarmonyPatch(typeof(SentryService), nameof(SentryService.Shutdown))]
+internal static class SentryShutdownPatch
+{
+    private static readonly FieldInfo SentryInit = AccessTools.Field(typeof(SentryService), "_sentryInit");
+
+    private static void Prefix()
+    {
+        if (ModManager.IsRunningModded())
+        {
+            SentryInit.SetValue(null, null);
+        }
+    }
+}
 
 // ---- Text ------------------------------------------------------------------------------------
 
