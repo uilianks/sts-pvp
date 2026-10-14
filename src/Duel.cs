@@ -47,6 +47,9 @@ public static class Duel
     /// <summary>Players in the duel, for the end banner.</summary>
     public static int PlayerCount { get; set; }
 
+    /// <summary>The local player's character this duel, kept for a same-character rematch.</summary>
+    public static MegaCrit.Sts2.Core.Models.CharacterModel? LocalCharacter { get; set; }
+
     /// <summary>Index (in player order) where the search for the next turn's player starts.</summary>
     public static int NextTurn { get; set; }
 
@@ -68,6 +71,7 @@ public static class Duel
             Log.Info("[pvp] duel mode off");
         }
         Active = false;
+        SteamMatch.ForgetHostedLobby();
         Drafted = false;
         Started = false;
         Decided = false;
@@ -148,6 +152,19 @@ public static class Duel
         }
         var players = creature.CombatState?.Players;
         return players != null && proxy.PlayerIndex < players.Count ? players[proxy.PlayerIndex] : null;
+    }
+
+    /// <summary>
+    /// Where a creature is drawn on this screen: another player's own body is hidden (see
+    /// <c>ArrangeDuelCreature</c>), so it is shown by its proxy on the enemy side.
+    /// </summary>
+    public static Creature Shown(Creature creature)
+    {
+        if (!Active || !Started || creature.Player is not { } player || LocalContext.IsMe(player))
+        {
+            return creature;
+        }
+        return creature.CombatState?.Enemies.FirstOrDefault(e => PlayerFor(e) == player) ?? creature;
     }
 
     /// <summary>

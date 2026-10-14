@@ -2,7 +2,8 @@
 
 A Slay the Spire 2 mod that adds a **Duel** button to the main menu: 2 to 4 players, each on their
 own PC, fight each other, free-for-all: the last one standing wins. It reuses the game's own co-op: same lobby, same character select,
-same turn sync, connected by IP, so it works over LAN, Hamachi or ZeroTier.
+same turn sync. Connect through Steam (**Quick Match** against a random opponent, or a
+**room code** for friends), or by IP over LAN, Hamachi or ZeroTier.
 
 Built for game version **v0.107.1** (Steam, public branch).
 
@@ -36,15 +37,22 @@ Built for game version **v0.107.1** (Steam, public branch).
 5. **Same mods on every PC.** Co-op checks that the games match, so any other mod has to be
    on every side too. If one of you has extra mods (e.g. from the Workshop), turn them off in
    *Mod Configuration* in the main menu.
-6. **Same virtual network**: all in the same Hamachi network, or the same ZeroTier network
-   (the ZeroTier admin must tick "Auth" for every PC in ZeroTier Central).
+6. **By IP only: same virtual network**: all in the same Hamachi network, or the same ZeroTier network
+   (the ZeroTier admin must tick "Auth" for every PC in ZeroTier Central). Quick Match and room
+   codes go through Steam and need none of this.
 
 ## Play
 
-1. Host: **Duel**. The panel lists your IPs (ZeroTier, Hamachi, LAN): click **Copy** next to
-   the one your friends can reach and send it to them. Then **Host**: the game's co-op
-   character select opens and waits.
-2. Other players (up to 3): **Duel**, type the host's IP, **Join**.
+1. Connect, one of three ways (all from the **Duel** panel):
+   - **Quick Match** (beta test, may not work properly): a random 1v1 opponent. It joins someone already waiting, or opens a
+     lobby and waits for the next player who clicks Quick Match (the character select says
+     "waiting for an opponent").
+   - **Room code** (friends, 2 to 4 players): one clicks **Host**; the character select opens
+     with a 5-letter room code on top, already copied to the clipboard. The others type it in
+     the field and click **Join**.
+   - **By IP** (LAN, Hamachi, ZeroTier): the host clicks **Host by IP**; the panel lists their
+     IPs. The others type the host's IP in the field and click **Join**.
+2. Finding the IP to share:
    - Hamachi: the IPv4 at the top of the Hamachi window (`25.x.y.z`).
    - ZeroTier: the "Managed IP" of the network (`zerotier-cli listnetworks` or ZeroTier Central).
    - Same LAN: the host's local IP (`192.168.x.y`).
@@ -65,15 +73,18 @@ Built for game version **v0.107.1** (Steam, public branch).
    they watch the rest. When one player is left standing, everyone sees the end screen:
    **Victory!** for the winner, **Defeat** (2 players) or the place (*2nd Place*, *3rd Place*…).
    A player still fighting who quits forfeits: if that leaves one player, they win; with more
-   left the duel ends with no result (*Duel Over*). Click **Continue**, then **Rematch** (above
-   Main Menu): the host hosts again and the others rejoin the same IP, back to character
-   select. Whoever clicks first waits for the host.
+   left the duel ends with no result (*Duel Over*). Click **Continue**, then one of the two
+   buttons above Main Menu: **Rematch** goes back to the character select; **Same Character**
+   keeps your character (picked and readied for you) and goes straight to a new draft once
+   everyone is ready. Each player chooses for themselves. The host hosts again and the others
+   rejoin the way they came (same IP, or the host's Steam lobby); whoever clicks first waits
+   for the host.
 
 Duel runs are not saved and do not count towards stats or unlocks.
 
-### Firewall
+### Firewall (by IP only)
 
-The host listens on **UDP 33771** (the game's own co-op port).
+Quick Match and room codes use Steam's relay: no port to open. By IP, the host listens on **UDP 33771** (the game's own co-op port).
 - Windows: when Windows asks whether Slay the Spire 2 may use the network, allow it for
   private and public networks (Hamachi/ZeroTier adapters are often "public").
 - Linux: `sudo ufw allow 33771/udp` or `sudo firewall-cmd --add-port=33771/udp`.
@@ -124,7 +135,15 @@ is kept in `workshop/mod_id.txt`, so it updates the same Workshop item. On Windo
 StS2 loads mods natively: `ModManager` reads `<game>/mods/**/<id>.json`, loads `<id>.dll` and
 calls the class marked `[ModInitializer]`; Harmony ships with the game.
 
-- `DuelMenu`: the Duel button (a copy of the Multiplayer button) and the host/join panel, built
+- `SteamMatch`: Quick Match and room codes on the game's own Steam co-op transport
+  (`NetHostGameService.StartSteamHost`, `SteamClientConnectionInitializer.FromLobby`: a Steam
+  lobby plus Steam relay). The game creates friends-only lobbies; a duel lobby is made public
+  and tagged with the game and mod builds, the kind (quick, room, rematch) and a key (room code,
+  or the host's Steam id for a rematch), and found with `SteamMatchmaking.RequestLobbyList`
+  filters. A `SteamHost.SetHostIsClosed` patch keeps it public while open. Two Quick Match
+  players searching at once would both host: a waiting host searches again every 3 s and
+  moves into an older (lower id) waiting lobby, so exactly one stays host.
+- `DuelMenu`: the Duel button (a copy of the Multiplayer button) and the connect panel, built
   on the game's `NGenericPopup` / `NVerticalPopup` (its frame and Yes/No buttons, plus a copy
   for Host). Rematch returns to the main menu, then re-hosts or rejoins the last IP (retrying
   while the host is not up yet). The Rematch button is a copy of the end screen's
@@ -176,6 +195,10 @@ calls the class marked `[ModInitializer]`; Harmony ships with the game.
 Verified on Linux, game v0.107.1:
 - builds; `test/` applies every patch to the real `sts2.dll` (run by `build.sh`);
 - in game: the mod loads, all patches apply, the **Duel** button shows in the main menu.
+- in testing mode (`simulate.sh`, 2 players over IP): the connect panel layout, draft, duel,
+  damage numbers and hit effects shown at the opponent's proxy, both end screen rematch
+  buttons, and a Same Character rematch (characters picked and readied, straight to a new draft).
 
-Not verified: 3 and 4 player duels; an actual duel between two PCs (host/join, the proxy display, damage
+Not verified: Quick Match, room codes and the Steam rematch (they need two Steam accounts on two
+PCs: one account cannot join its own lobby, so `simulate.sh` cannot cover them); 3 and 4 player duels; an actual duel between two PCs (host/join, the proxy display, damage
 redirection, the end screen), Windows, and play across Hamachi/ZeroTier.

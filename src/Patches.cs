@@ -1,3 +1,4 @@
+using System.Reflection;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.addons.mega_text;
@@ -15,8 +16,10 @@ using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
+using MegaCrit.Sts2.Core.Nodes.Vfx;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.ValueProps;
@@ -100,6 +103,7 @@ internal static class DuelRoomPatch
         if (!Duel.Drafted)
         {
             Duel.Drafted = true;
+            Duel.LocalCharacter = LocalContext.GetMe(state.Players)?.Character;
             __result = new EventRoom(ModelDb.Event<PvpDraft>());
             Log.Info("[pvp] draft room created");
             return false;
@@ -269,6 +273,39 @@ internal static class ProxyDisplayPatch
 }
 
 /// <summary>
+/// Combat effects (damage numbers, hit sparks, slashes, beams...) are placed at the node of the
+/// creature they are given. Damage is redirected to the opponent's own body, which is hidden on
+/// this screen next to your character: an effect on it (or coming from it) is shown at the
+/// opponent's proxy instead.
+/// </summary>
+[HarmonyPatch]
+internal static class EffectsAtProxyPatch
+{
+    private static IEnumerable<MethodBase> TargetMethods()
+    {
+        return typeof(NDamageNumVfx).Assembly.GetTypes()
+            .Where(t => t.Namespace?.StartsWith("MegaCrit.Sts2.Core.Nodes.Vfx") == true)
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(m => m.Name == "Create" && m.GetParameters().Any(p => p.ParameterType == typeof(Creature)));
+    }
+
+    private static void Prefix(object?[] __args)
+    {
+        if (!Duel.Active || !Duel.Started)
+        {
+            return;
+        }
+        for (var i = 0; i < __args.Length; i++)
+        {
+            if (__args[i] is Creature creature)
+            {
+                __args[i] = Duel.Shown(creature);
+            }
+        }
+    }
+}
+
+/// <summary>
 /// Several monsters of one type get a random size and tint, and their visuals' scale is reset,
 /// which undoes the mirroring of the proxies (all one type). Proxies look like their players.
 /// </summary>
@@ -312,12 +349,15 @@ internal static class DuelGameOverCreaturesPatch
 }
 
 /// <summary>
-/// Duel end screen: a Rematch button (a copy of the game's Main Menu button) above Main Menu,
-/// shown together with it.
+/// Duel end screen: two Rematch buttons (copies of the game's Main Menu button) stacked above
+/// Main Menu, shown together with it. "Rematch" goes back to the character select; "Same
+/// Character" keeps this player's character and goes straight to a new draft.
 /// </summary>
 [HarmonyPatch(typeof(NGameOverScreen), nameof(NGameOverScreen._Ready))]
 internal static class RematchButtonPatch
 {
+    public static readonly string[] Names = { "RematchButton", "RematchSameButton" };
+
     private static void Postfix(NReturnToMainMenuButton ____mainMenuButton)
     {
         if (!Duel.Active)
@@ -325,39 +365,53 @@ internal static class RematchButtonPatch
             return;
         }
         var mainMenu = ____mainMenuButton;
-        // No DuplicateFlags.Signals: the copy must not return to the main menu by itself.
-        var rematch = (NReturnToMainMenuButton)mainMenu.Duplicate((int)(Node.DuplicateFlags.Groups | Node.DuplicateFlags.Scripts | Node.DuplicateFlags.UseInstantiation));
-        rematch.Name = "RematchButton";
-        mainMenu.AddSibling(rematch);
-        // Above Main Menu: the spot it slides into when shown (its _Ready computed one from the copy).
-        var spot = mainMenu.Position + new Vector2(0, -(mainMenu.Size.Y + 16));
-        Traverse.Create(rematch).Field("_showPosition").SetValue(spot);
-        rematch.Position = spot;
-        rematch.GetNode<MegaLabel>("Label").SetTextAutoSize("Rematch");
-        rematch.Disable();
-        rematch.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
+        var buttons = new List<NReturnToMainMenuButton>();
+        foreach (var (name, text, same, row) in new[] { (Names[0], "Rematch", false, 2), (Names[1], "Same Character", true, 1) })
         {
-            rematch.Disable();
-            mainMenu.Disable();
-            DuelMenu.Rematch();
-        }));
-        Log.Info($"[pvp] rematch button added under {mainMenu.GetParent().GetType().Name} at {rematch.Position} (main menu at {mainMenu.Position}, size {mainMenu.Size})");
+            // No DuplicateFlags.Signals: the copy must not return to the main menu by itself.
+            var button = (NReturnToMainMenuButton)mainMenu.Duplicate((int)(Node.DuplicateFlags.Groups | Node.DuplicateFlags.Scripts | Node.DuplicateFlags.UseInstantiation));
+            button.Name = name;
+            mainMenu.AddSibling(button);
+            // Above Main Menu: the spot it slides into when shown (its _Ready computed one from the copy).
+            var spot = mainMenu.Position + new Vector2(0, -row * (mainMenu.Size.Y + 16));
+            Traverse.Create(button).Field("_showPosition").SetValue(spot);
+            button.Position = spot;
+            button.GetNode<MegaLabel>("Label").SetTextAutoSize(text);
+            button.Disable();
+            button.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
+            {
+                buttons.ForEach(b => b.Disable());
+                mainMenu.Disable();
+                DuelMenu.Rematch(same);
+            }));
+            buttons.Add(button);
+        }
+        Log.Info($"[pvp] rematch buttons added under {mainMenu.GetParent().GetType().Name} (main menu at {mainMenu.Position}, size {mainMenu.Size})");
     }
 }
 
-/// <summary>The Rematch button shows up whenever the game shows its Main Menu button.</summary>
+/// <summary>The Rematch buttons show up whenever the game shows its Main Menu button.</summary>
 [HarmonyPatch(typeof(NReturnToMainMenuButton), "OnEnable")]
 internal static class RematchButtonShowPatch
 {
     private static void Postfix(NReturnToMainMenuButton __instance)
     {
-        if (Duel.Active && __instance.Name != "RematchButton" &&
-            __instance.GetParent()?.GetNodeOrNull<NReturnToMainMenuButton>("RematchButton") is { } rematch)
+        if (!Duel.Active || RematchButtonPatch.Names.Contains(__instance.Name.ToString()) || __instance.GetParent() is not { } parent)
         {
-            rematch.Enable();
-            Log.Info($"[pvp] rematch button shown at {rematch.Position}, visible {rematch.IsVisibleInTree()}");
+            return;
+        }
+        foreach (var name in RematchButtonPatch.Names)
+        {
+            parent.GetNodeOrNull<NReturnToMainMenuButton>(name)?.Enable();
         }
     }
+}
+
+/// <summary>Same-character rematch: the kept character is picked and readied on the character select.</summary>
+[HarmonyPatch(typeof(NCharacterSelectScreen), nameof(NCharacterSelectScreen.OnSubmenuOpened))]
+internal static class KeepCharacterPatch
+{
+    private static void Postfix(NCharacterSelectScreen __instance) => DuelMenu.OnCharacterSelectOpened(__instance);
 }
 
 [HarmonyPatch(typeof(NGameOverScreen), "InitializeBannerAndQuote")]
